@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Loader2, Sparkles, BookOpen, ChevronDown, ChevronUp, AlertCircle, FileText, CheckCircle2, Cpu, Layers } from 'lucide-react'
+import { Search, Loader2, Sparkles, BookOpen, ChevronDown, ChevronUp, AlertCircle, FileText, CheckCircle2, Cpu, Layers, Filter, X, Check } from 'lucide-react'
 import { getDb, isDbInitialized } from '@/db/client'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,11 @@ function SearchComponent() {
   const [selectedCitationIndex, setSelectedCitationIndex] = useState<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Document filter state
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set())
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterRef = useRef<HTMLDivElement>(null)
+
   // Fetch query history
   const { data: queryHistory = [], refetch: refetchHistory } = useQuery({
     queryKey: ['query-history', dbReady],
@@ -47,6 +52,7 @@ function SearchComponent() {
     },
     enabled: dbReady,
   })
+
 
   const handleLoadHistoryItem = (item: any) => {
     setActiveQuery(item.query)
@@ -95,6 +101,21 @@ function SearchComponent() {
     setLoadingError,
   } = useSystemInit()
 
+  // Fetch documents for the active project (for filter)
+  const { data: projectDocs = [] } = useQuery({
+    queryKey: ['project-docs', dbReady, activeProject?.id],
+    queryFn: async () => {
+      if (!dbReady || !activeProject) return []
+      const db = getDb()
+      const res = await db.query<any>(
+        `SELECT id, name, status FROM documents WHERE project_id = $1 AND status = 'completed' ORDER BY name ASC`,
+        [activeProject.id]
+      )
+      return res.rows
+    },
+    enabled: dbReady && !!activeProject,
+  })
+
   const getLLMHandles = (): LLMRuntimeHandles => ({
     gemma4: gemma4 as unknown as LLMRuntimeHandles['gemma4'],
     webllm: webllm as unknown as LLMRuntimeHandles['webllm'],
@@ -114,6 +135,18 @@ function SearchComponent() {
 
     return () => clearInterval(interval)
   }, [dbReady])
+
+  // Close filter popover on outside click
+  useEffect(() => {
+    if (!filterOpen) return
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [filterOpen])
 
   const variant = getLLMVariant(prefs.llmVariantId)
   const option = getLLMOption(prefs.llmVariantId)
@@ -159,6 +192,7 @@ function SearchComponent() {
       const stream = generateRAGAnswer(queryText, {
         projectId: activeProject?.id ?? '',
         embeddingModelId: activeProject?.embeddingModelId ?? '',
+        documentIds: selectedDocIds.size > 0 ? Array.from(selectedDocIds) : undefined,
         abortSignal: abortController.signal,
         llmHandles: getLLMHandles(),
       })
@@ -376,24 +410,154 @@ function SearchComponent() {
       ) : (
         /* Standard Workspace Interface (Loaded) */
         <>
-          <form onSubmit={handleSearch} className="flex gap-2 shrink-0">
-            <Input
-              value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
-              placeholder="Ask a question about your documents..."
-              className="flex-1 bg-background/50 border-border/40 focus:ring-primary focus:border-primary shadow-sm"
-              disabled={isGenerating || !dbReady}
-            />
-            {isGenerating ? (
-              <Button type="button" variant="destructive" onClick={handleAbort} className="shadow-md flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Stop
-              </Button>
-            ) : (
-              <Button type="submit" disabled={!dbReady || !queryText.trim()} className="shadow-md flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all">
-                <Search className="h-4 w-4" />
-                Query
-              </Button>
+            <form onSubmit={handleSearch} className="flex flex-col gap-2 shrink-0">
+              {/* Search bar row */}
+              <div className="flex gap-2">
+                <Input
+                  value={queryText}
+                  onChange={(e) => setQueryText(e.target.value)}
+                  placeholder="Ask a question about your documents..."
+                  className="flex-1 bg-background/50 border-border/40 focus:ring-primary focus:border-primary shadow-sm"
+                  disabled={isGenerating || !dbReady}
+                />
+
+                {/* Document filter button */}
+                <div className="relative" ref={filterRef}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setFilterOpen((o) => !o)}
+                    disabled={isGenerating || !dbReady || projectDocs.length === 0}
+                    className={cn(
+                      'flex items-center gap-1.5 border-border/40 shadow-sm transition-all',
+                      selectedDocIds.size > 0 && 'border-primary/60 bg-primary/5 text-primary'
+                    )}
+                  >
+                    <Filter className="h-4 w-4" />
+                    <span className="hidden sm:inline text-xs">
+                      {selectedDocIds.size > 0 ? `${selectedDocIds.size} doc${selectedDocIds.size > 1 ? 's' : ''}` : 'Filter'}
+                    </span>
+                    {selectedDocIds.size > 0 && (
+                      <span
+                        role="button"
+                        aria-label="Clear filter"
+                        onClick={(e) => { e.stopPropagation(); setSelectedDocIds(new Set()) }}
+                        className="ml-0.5 hover:text-destructive transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
+                    )}
+                  </Button>
+
+                  {/* Popover */}
+                  {filterOpen && projectDocs.length > 0 && (
+                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-border/40 bg-card/95 backdrop-blur-md shadow-2xl overflow-hidden animate-fade-in">
+                      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 bg-card/10">
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5 text-primary" />
+                          Filter by Document
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {selectedDocIds.size > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDocIds(new Set())}
+                              className="text-[10px] text-muted-foreground hover:text-destructive transition-colors px-1.5 py-0.5 rounded"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedDocIds.size === projectDocs.length) {
+                                setSelectedDocIds(new Set())
+                              } else {
+                                setSelectedDocIds(new Set(projectDocs.map((d: any) => d.id)))
+                              }
+                            }}
+                            className="text-[10px] text-primary hover:underline px-1.5 py-0.5 rounded transition-colors"
+                          >
+                            {selectedDocIds.size === projectDocs.length ? 'Deselect all' : 'Select all'}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-56 overflow-y-auto py-1.5">
+                        {projectDocs.map((doc: any) => {
+                          const isChecked = selectedDocIds.has(doc.id)
+                          return (
+                            <button
+                              type="button"
+                              key={doc.id}
+                              onClick={() => {
+                                setSelectedDocIds((prev) => {
+                                  const next = new Set(prev)
+                                  isChecked ? next.delete(doc.id) : next.add(doc.id)
+                                  return next
+                                })
+                              }}
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-all hover:bg-secondary/30 text-left',
+                                isChecked && 'bg-primary/5 text-primary'
+                              )}
+                            >
+                              <span className={cn(
+                                'h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+                                isChecked
+                                  ? 'bg-primary border-primary text-primary-foreground'
+                                  : 'border-border/60 bg-background/40'
+                              )}>
+                                {isChecked && <Check className="h-2.5 w-2.5" />}
+                              </span>
+                              <span className="truncate">{doc.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {selectedDocIds.size > 0 && (
+                        <div className="px-3 py-2 border-t border-border/30 bg-card/10 text-[10px] text-muted-foreground">
+                          Searching {selectedDocIds.size} of {projectDocs.length} document{projectDocs.length !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {isGenerating ? (
+                  <Button type="button" variant="destructive" onClick={handleAbort} className="shadow-md flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Stop
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={!dbReady || !queryText.trim()} className="shadow-md flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all">
+                    <Search className="h-4 w-4" />
+                    Query
+                  </Button>
+                )}
+              </div>
+
+              {/* Active filter badge strip */}
+              {selectedDocIds.size > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[10px] text-muted-foreground">Filtering:</span>
+                  {projectDocs
+                    .filter((d: any) => selectedDocIds.has(d.id))
+                    .map((d: any) => (
+                      <span
+                        key={d.id}
+                        className="inline-flex items-center gap-1 text-[10px] bg-primary/10 border border-primary/25 text-primary px-2 py-0.5 rounded-full"
+                      >
+                        {d.name}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDocIds((prev) => { const n = new Set(prev); n.delete(d.id); return n })}
+                          className="hover:text-destructive transition-colors"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                </div>
             )}
           </form>
 

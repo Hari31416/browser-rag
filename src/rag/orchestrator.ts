@@ -16,6 +16,7 @@ export async function* generateRAGAnswer(
     projectId: string
     embeddingModelId: string
     documentId?: string
+    documentIds?: string[]
     abortSignal?: AbortSignal
     llmHandles: any
   }
@@ -28,6 +29,7 @@ export async function* generateRAGAnswer(
       embeddingModelId: options.embeddingModelId,
       projectId: options.projectId,
       documentId: options.documentId,
+      documentIds: options.documentIds,
       topK: prefs.retrievalTopK,
       hybridEnabled: prefs.hybridRetrievalEnabled,
     })

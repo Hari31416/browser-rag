@@ -23,7 +23,10 @@ export interface RetrievalResult {
 export interface RetrievalOptions {
   embeddingModelId: string
   projectId?: string
+  /** Filter to a single document (legacy). Prefer documentIds for multi-select. */
   documentId?: string
+  /** Filter to a set of documents; when empty or undefined, all docs in the project are searched. */
+  documentIds?: string[]
   topK?: number
   vectorLimit?: number
   keywordLimit?: number
@@ -75,9 +78,16 @@ export async function retrieveChunks(
      WHERE c.embedding_model_id = $2`,
   ]
 
-  if (options?.documentId) {
-    vectorValues.push(options.documentId)
-    vectorQueryParts.push(`AND c.document_id = $${vectorValues.length}`)
+  // Multi-document filter takes precedence over single documentId
+  const effectiveDocumentIds = options?.documentIds && options.documentIds.length > 0
+    ? options.documentIds
+    : options?.documentId
+      ? [options.documentId]
+      : null
+
+  if (effectiveDocumentIds) {
+    vectorValues.push(effectiveDocumentIds)
+    vectorQueryParts.push(`AND c.document_id = ANY($${vectorValues.length})`)
   }
   if (options?.projectId) {
     vectorValues.push(options.projectId)
@@ -134,9 +144,9 @@ export async function retrieveChunks(
      WHERE to_tsvector('english', c.text) @@ plainto_tsquery('english', $1)`,
   ]
 
-  if (options?.documentId) {
-    keywordValues.push(options.documentId)
-    keywordQueryParts.push(`AND c.document_id = $${keywordValues.length}`)
+  if (effectiveDocumentIds) {
+    keywordValues.push(effectiveDocumentIds)
+    keywordQueryParts.push(`AND c.document_id = ANY($${keywordValues.length})`)
   }
   if (options?.projectId) {
     keywordValues.push(options.projectId)
