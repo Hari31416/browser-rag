@@ -75,8 +75,7 @@ function DiagnosticsComponent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">Diagnostics</h2>
+        <div>
           <p className="text-muted-foreground text-sm">
             Monitor browser capabilities, database stats, and hardware acceleration status.
           </p>

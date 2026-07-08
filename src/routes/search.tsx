@@ -168,17 +168,13 @@ function SearchComponent() {
   return (
     <div className="space-y-6 flex flex-col flex-1 h-full min-h-0 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">Search & Chat</h2>
-          <p className="text-muted-foreground text-sm">
-            Query your local documents with pgvector semantic search and keyword fusion.
-          </p>
-        </div>
+        <p className="text-muted-foreground text-sm">
+          Query your local documents with pgvector semantic search and keyword fusion.
+        </p>
         {isLoaded && (
           <Card className="px-4 py-2 bg-secondary/35 border-border/40 text-xs flex items-center gap-2 select-none">
             <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
             <span>Active LLM: <strong className="font-semibold text-foreground">{option.name}</strong> ({variant.label})</span>
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping ml-1" />
           </Card>
         )}
       </div>

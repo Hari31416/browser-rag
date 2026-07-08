@@ -265,8 +265,7 @@ function DocumentsComponent() {
 
   return (
     <div className="space-y-6 flex-1 flex flex-col min-h-0 animate-fade-in">
-      <div className="space-y-1 shrink-0">
-        <h2 className="text-2xl font-bold tracking-tight">Document Management</h2>
+      <div className="shrink-0">
         <p className="text-muted-foreground text-sm">
           Upload and index documents into your local PGlite vector database.
         </p>

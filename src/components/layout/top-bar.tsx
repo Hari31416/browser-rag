@@ -1,4 +1,4 @@
-import { Sun, Moon, Cpu, Server } from 'lucide-react'
+import { Sun, Moon, Cpu } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
 

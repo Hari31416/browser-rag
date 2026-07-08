@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useLocation } from '@tanstack/react-router'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopBar } from '@/components/layout/top-bar'
@@ -8,6 +9,35 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation()
+
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true'
+    }
+    return false
+  })
+
+  const toggleSidebar = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('sidebar-collapsed', String(next))
+      return next
+    })
+  }
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        toggleSidebar()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
@@ -28,7 +58,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar />
+      <Sidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
         <TopBar title={getPageTitle(location.pathname)} />
         <main className="flex-1 overflow-y-auto bg-background/50 p-6">

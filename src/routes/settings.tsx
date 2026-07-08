@@ -35,8 +35,7 @@ function SettingsComponent() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
+      <div>
         <p className="text-muted-foreground text-sm">
           Configure model parameters, embedding providers, and local LLM preferences.
         </p>
