@@ -57,7 +57,10 @@ export async function retrieveChunks(
 
   // 1. Generate query embedding
   await provider.load(modelConfig.modelId)
-  const queryEmbeddingResult = await provider.embedQuery(query)
+  const queryPrefix = modelConfig.requiresPrefix && modelConfig.queryPrefix
+    ? modelConfig.queryPrefix
+    : ''
+  const queryEmbeddingResult = await provider.embedQuery(queryPrefix + query)
   const vectorString = `[${queryEmbeddingResult.embedding.join(',')}]`
 
   // 2. Query vector similarity

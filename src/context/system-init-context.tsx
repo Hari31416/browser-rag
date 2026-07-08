@@ -96,7 +96,7 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
             project = await createProject(
               'Default Project',
               'Auto-created default workspace',
-              'supabase-gte-small'
+              'xenova-gte-base'
             )
           }
           savePreferences({ activeProjectId: project.id })

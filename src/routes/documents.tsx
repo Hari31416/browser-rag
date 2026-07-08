@@ -138,7 +138,10 @@ function DocumentsComponent() {
 
                 console.log(`[INDEXING STEP] Embedding model ready. Generating embeddings for ${chunks.length} chunks...`)
                 setUploadingStatus(`Generating embeddings for ${chunks.length} chunks...`)
-                const chunkTexts = chunks.map((c: any) => c.text)
+                const passagePrefix = currentModelConfig.requiresPrefix && currentModelConfig.passagePrefix
+                  ? currentModelConfig.passagePrefix
+                  : ''
+                const chunkTexts = chunks.map((c: any) => passagePrefix + c.text)
                 const embeddingResults = await provider.embedTexts(chunkTexts, {
                   onProgress: (prog: any) => {
                     if (prog.type === 'embed') {

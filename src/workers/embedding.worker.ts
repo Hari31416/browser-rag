@@ -29,6 +29,7 @@ self.onmessage = async (e: MessageEvent) => {
       extractor = await pipeline('feature-extraction', modelId, {
         progress_callback: progressCallback,
         device: 'webgpu',
+        dtype: 'q8',
       })
       currentModelId = modelId
 

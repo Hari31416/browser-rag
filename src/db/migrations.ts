@@ -12,6 +12,15 @@ export const migrations: Migration[] = [
       -- Enable vector extension
       CREATE EXTENSION IF NOT EXISTS vector;
 
+      -- Create projects table — each project has a locked embedding model
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        embedding_model_id TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Create collections table
       CREATE TABLE IF NOT EXISTS collections (
         id TEXT PRIMARY KEY,
@@ -23,6 +32,7 @@ export const migrations: Migration[] = [
       CREATE TABLE IF NOT EXISTS documents (
         id TEXT PRIMARY KEY,
         collection_id TEXT REFERENCES collections(id) ON DELETE CASCADE,
+        project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
         source_type TEXT NOT NULL,
         name TEXT NOT NULL,
         mime_type TEXT,
@@ -44,7 +54,7 @@ export const migrations: Migration[] = [
         embedding_model_id TEXT NOT NULL,
         embedding_provider_id TEXT NOT NULL,
         embedding_dimensions INTEGER NOT NULL,
-        embedding vector(384),
+        embedding vector,
         metadata_json TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -78,6 +88,7 @@ export const migrations: Migration[] = [
       -- Create query_history table
       CREATE TABLE IF NOT EXISTS query_history (
         id TEXT PRIMARY KEY,
+        project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
         query TEXT NOT NULL,
         answer TEXT,
         retrieved_chunks_json TEXT,
@@ -88,47 +99,17 @@ export const migrations: Migration[] = [
 
       -- Create index for documents lookup
       CREATE INDEX IF NOT EXISTS idx_documents_collection ON documents(collection_id);
+      CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(project_id);
 
       -- Create index for chunks lookup
       CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
       CREATE INDEX IF NOT EXISTS idx_chunks_doc_index ON chunks(document_id, chunk_index);
 
+      -- Create index for query history lookup
+      CREATE INDEX IF NOT EXISTS idx_query_history_project ON query_history(project_id);
+
       -- Create text search indexes (lexical search using tsvector)
       CREATE INDEX IF NOT EXISTS idx_chunks_text_search ON chunks USING gin(to_tsvector('english', text));
-
-      -- Create vector search index using Cosine distance on embedding
-      CREATE INDEX IF NOT EXISTS idx_chunks_embedding_cosine ON chunks USING hnsw (embedding vector_cosine_ops);
-    `,
-  },
-  {
-    version: 2,
-    sql: `
-      -- Clean slate: remove all existing user data so project scoping starts fresh
-      DELETE FROM query_history;
-      DELETE FROM chunks;
-      DELETE FROM documents;
-      DELETE FROM collections;
-
-      -- Create projects table — each project has a locked embedding model
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        embedding_model_id TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- Add project_id column to documents
-      ALTER TABLE documents ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id) ON DELETE CASCADE;
-
-      -- Add project_id column to query_history
-      ALTER TABLE query_history ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id) ON DELETE CASCADE;
-
-      -- Index for project-scoped document lookups
-      CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(project_id);
-
-      -- Index for project-scoped query history lookups
-      CREATE INDEX IF NOT EXISTS idx_query_history_project ON query_history(project_id);
     `,
   },
 ]
