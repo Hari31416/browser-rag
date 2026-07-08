@@ -43,9 +43,7 @@ export function AppShell({ children }: AppShellProps) {
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
       case '/':
-        return 'Dashboard'
-      case '/search':
-        return 'Search & Chat'
+        return 'Chat'
       case '/history':
         return 'History'
       case '/projects':
@@ -54,8 +52,6 @@ export function AppShell({ children }: AppShellProps) {
         return 'Document Management'
       case '/settings':
         return 'Settings'
-      case '/diagnostics':
-        return 'System Diagnostics'
       default:
         return 'Local RAG'
     }
@@ -72,11 +68,11 @@ export function AppShell({ children }: AppShellProps) {
         <TopBar title={getPageTitle(location.pathname)} />
         <main className={cn(
           'flex-1 min-h-0 bg-background/50',
-          location.pathname === '/search'
+          location.pathname === '/'
             ? 'overflow-hidden flex flex-col'
             : 'overflow-y-auto p-6'
         )}>
-          {location.pathname === '/search' ? (
+          {location.pathname === '/' ? (
             <div className="flex flex-col flex-1 min-h-0 h-full">
               {children}
             </div>

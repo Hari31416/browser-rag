@@ -43,7 +43,7 @@ function HistoryComponent() {
   }
 
   const handleOpenQuery = (id: string) => {
-    navigate({ to: '/search', search: { historyId: id } })
+    navigate({ to: '/', search: { historyId: id } })
   }
 
   if (!dbReady || isLoading) {

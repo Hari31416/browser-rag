@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { LayoutDashboard, FileText, Search, Settings, Activity, ChevronLeft, ChevronRight, History } from 'lucide-react'
+import { FileText, Search, Settings, ChevronLeft, ChevronRight, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -11,19 +11,17 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const links = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/search', label: 'Search & Chat', icon: Search },
+    { to: '/', label: 'Chat', icon: Search },
     { to: '/history', label: 'History', icon: History },
     { to: '/documents', label: 'Documents', icon: FileText },
     { to: '/settings', label: 'Settings', icon: Settings },
-    { to: '/diagnostics', label: 'Diagnostics', icon: Activity },
   ]
 
   return (
     <aside
       className={cn(
         "border-r border-border bg-card/60 backdrop-blur-md flex flex-col h-screen shrink-0 transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-16" : "w-64"
+        isCollapsed ? "w-16" : "w-48"
       )}
     >
       <div

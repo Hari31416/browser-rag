@@ -1,4 +1,4 @@
-import { Sun, Moon, Cpu } from 'lucide-react'
+import { Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
 import { ProjectSwitcher } from '@/components/layout/project-switcher'
@@ -18,15 +18,6 @@ export function TopBar({ title }: TopBarProps) {
       </div>
 
       <div className='flex items-center gap-4'>
-        {/* System Capabilities Status */}
-        <div className='hidden sm:flex items-center gap-3 text-xs text-muted-foreground border-r border-border pr-4'>
-          <div className='flex items-center gap-1.5'>
-            <Cpu className='h-3.5 w-3.5' />
-            <span>WebGPU:</span>
-            <span className='font-mono text-foreground font-semibold'>Supported</span>
-          </div>
-        </div>
-
         {/* Theme Toggle Button */}
         <Button
           variant='ghost'
