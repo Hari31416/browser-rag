@@ -7,20 +7,24 @@ A fully local, private Retrieval-Augmented Generation (RAG) system running entir
 
 ## Key Features
 
-- **Local Inference**: Runs embedding models and LLM generation directly inside the browser using WebGPU acceleration with WASM fallback.
-- **In-Browser Vector Database**: Uses PGlite (a lightweight WebAssembly build of PostgreSQL) with the pgvector extension for local vector and keyword search.
-- **Secure and Private**: Keep your sensitive documents safe. No server uploads, no remote API calls for local models, and no third-party tracking.
-- **Dynamic Routing**: Instant responsive UI using React, TanStack Router, and TanStack Query.
-- **Advanced Diagnostics**: Track WebGPU capability, DB stats, memory usage, and loading progress of local AI engines.
+- **Multi-Project Workspaces**: Create isolated project environments, each configured with its own dedicated, locked embedding model to ensure vector consistency.
+- **Off-Thread Processing**: Document parsing, chunking, embedding generation, and vector retrieval are executed inside Web Workers to keep the main React UI thread responsive and smooth.
+- **Client-Side Text Extraction**: Extract text from `.txt`, `.md`, `.json`, `.csv`, `.html`, and `.pdf` files. PDF parsing is powered locally by `@llamaindex/liteparse-wasm` without remote server dependencies.
+- **Hybrid Search & Fusion**: Fuses semantic vector search (using pgvector) with exact keyword matches, ranked using Reciprocal Rank Fusion (RRF) for high-quality retrieval.
+- **Local Embedding Provider**: Uses Transformers.js (ONNX Runtime Web) to run embedding models locally, leveraging WebGPU acceleration when available, with WebAssembly as a fallback.
+- **In-Browser Vector Database**: Runs PGlite (a lightweight WebAssembly build of PostgreSQL) with the pgvector extension, utilizing IndexedDB for local storage persistence.
+- **Selectable Local LLM Engines**: Stream responses from multiple local models using WebLLM, Transformers.js, Gemma-4-kernel, and LFM2-kernel. Supports deep reasoning "thinking" processes.
+- **Traceable Citations**: Generated responses include interactive citation tooltips linking back to source document chunks, displaying page numbers, scores, and retrieved text previews.
+- **Diagnostics & Insights**: Real-time monitoring of browser capabilities (WebGPU, Web Workers, IndexedDB, WASM multi-threading) and PGlite database statistics (schema versions, table row counts).
 
 ## Tech Stack
 
 - **Frontend Framework**: React 19, TypeScript (Strict Mode)
 - **Routing & State**: TanStack Router, TanStack Query
-- **Styling**: Tailwind CSS v4, shadcn/ui components
-- **Embeddings**: Transformers.js with Hugging Face models (e.g., Supabase/gte-small)
+- **Styling**: Tailwind CSS v4, shadcn/ui components (Lucide React)
+- **Embeddings & Inference**: Transformers.js, WebLLM
+- **PDF Extraction**: `@llamaindex/liteparse-wasm`
 - **Database**: PGlite with pgvector and IndexedDB persistence
-- **Inference Engines**: WebLLM, Transformers.js, Gemma-4-kernel, and LFM2-kernel
 
 ## Getting Started
 
