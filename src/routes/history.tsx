@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { History, Trash2, Search, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useSystemInit } from '@/context/system-init-context'
 
 export const Route = createFileRoute('/history')({
   component: HistoryComponent,
@@ -12,6 +13,7 @@ export const Route = createFileRoute('/history')({
 function HistoryComponent() {
   const [dbReady, setDbReady] = useState(isDbInitialized())
   const navigate = useNavigate({ from: '/history' })
+  const { activeProject } = useSystemInit()
 
   useEffect(() => {
     if (dbReady) return
@@ -20,22 +22,25 @@ function HistoryComponent() {
   }, [dbReady])
 
   const { data: queryHistory = [], refetch, isLoading } = useQuery({
-    queryKey: ['query-history-full', dbReady],
+    queryKey: ['query-history-full', dbReady, activeProject?.id],
     queryFn: async () => {
-      if (!dbReady) return []
+      if (!dbReady || !activeProject) return []
       const db = getDb()
-      const res = await db.query<any>('SELECT * FROM query_history ORDER BY created_at DESC LIMIT 100')
+      const res = await db.query<any>(
+        'SELECT * FROM query_history WHERE project_id = $1 ORDER BY created_at DESC LIMIT 100',
+        [activeProject.id]
+      )
       return res.rows
     },
-    enabled: dbReady,
+    enabled: dbReady && !!activeProject,
   })
 
   const handleClearHistory = async () => {
-    if (!dbReady) return
-    if (!confirm('Are you sure you want to clear all history?')) return
+    if (!dbReady || !activeProject) return
+    if (!confirm('Are you sure you want to clear the history for this project?')) return
     try {
       const db = getDb()
-      await db.query('DELETE FROM query_history')
+      await db.query('DELETE FROM query_history WHERE project_id = $1', [activeProject.id])
       refetch()
     } catch (err) {
       console.error('Failed to clear query history:', err)
@@ -46,7 +51,7 @@ function HistoryComponent() {
     navigate({ to: '/', search: { historyId: id } })
   }
 
-  if (!dbReady || isLoading) {
+  if (!dbReady || isLoading || !activeProject) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
