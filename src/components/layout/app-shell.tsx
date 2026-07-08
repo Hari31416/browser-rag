@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation } from '@tanstack/react-router'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopBar } from '@/components/layout/top-bar'
+import { cn } from '@/lib/utils'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -45,6 +46,8 @@ export function AppShell({ children }: AppShellProps) {
         return 'Dashboard'
       case '/search':
         return 'Search & Chat'
+      case '/history':
+        return 'History'
       case '/projects':
         return 'Projects'
       case '/documents':
@@ -67,10 +70,21 @@ export function AppShell({ children }: AppShellProps) {
       <Sidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
         <TopBar title={getPageTitle(location.pathname)} />
-        <main className="flex-1 overflow-y-auto bg-background/50 p-6">
-          <div className="mx-auto max-w-7xl h-full flex flex-col">
-            {children}
-          </div>
+        <main className={cn(
+          'flex-1 min-h-0 bg-background/50',
+          location.pathname === '/search'
+            ? 'overflow-hidden flex flex-col'
+            : 'overflow-y-auto p-6'
+        )}>
+          {location.pathname === '/search' ? (
+            <div className="flex flex-col flex-1 min-h-0 h-full">
+              {children}
+            </div>
+          ) : (
+            <div className="mx-auto max-w-7xl h-full flex flex-col">
+              {children}
+            </div>
+          )}
         </main>
       </div>
     </div>

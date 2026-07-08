@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { LayoutDashboard, FileText, Search, Settings, Activity, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, FileText, Search, Settings, Activity, ChevronLeft, ChevronRight, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -13,6 +13,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const links = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/search', label: 'Search & Chat', icon: Search },
+    { to: '/history', label: 'History', icon: History },
     { to: '/documents', label: 'Documents', icon: FileText },
     { to: '/settings', label: 'Settings', icon: Settings },
     { to: '/diagnostics', label: 'Diagnostics', icon: Activity },

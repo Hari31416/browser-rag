@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +30,11 @@ const SearchRoute = SearchRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsRoute = DocumentsRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/documents': typeof DocumentsRoute
+  '/history': typeof HistoryRoute
   '/projects': typeof ProjectsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/documents': typeof DocumentsRoute
+  '/history': typeof HistoryRoute
   '/projects': typeof ProjectsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/documents': typeof DocumentsRoute
+  '/history': typeof HistoryRoute
   '/projects': typeof ProjectsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -75,15 +84,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/diagnostics' | '/documents' | '/projects' | '/search' | '/settings'
+    | '/'
+    | '/diagnostics'
+    | '/documents'
+    | '/history'
+    | '/projects'
+    | '/search'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/diagnostics' | '/documents' | '/projects' | '/search' | '/settings'
+    | '/'
+    | '/diagnostics'
+    | '/documents'
+    | '/history'
+    | '/projects'
+    | '/search'
+    | '/settings'
   id:
     | '__root__'
     | '/'
     | '/diagnostics'
     | '/documents'
+    | '/history'
     | '/projects'
     | '/search'
     | '/settings'
@@ -93,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiagnosticsRoute: typeof DiagnosticsRoute
   DocumentsRoute: typeof DocumentsRoute
+  HistoryRoute: typeof HistoryRoute
   ProjectsRoute: typeof ProjectsRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -119,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents': {
@@ -149,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiagnosticsRoute: DiagnosticsRoute,
   DocumentsRoute: DocumentsRoute,
+  HistoryRoute: HistoryRoute,
   ProjectsRoute: ProjectsRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
