@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { UploadPanel } from '@/components/documents/upload-panel'
-import { extractTextFromFile } from '@/rag/extractors'
 import { isDbInitialized, getDb } from '@/db/client'
 import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
@@ -58,47 +57,114 @@ function DocumentsComponent() {
       const db = getDb()
 
       for (const file of files) {
-        setUploadingStatus(`Extracting text from ${file.name}...`)
+        setUploadingStatus(`Processing ${file.name}...`)
         const docId = crypto.randomUUID()
         const arrayBuffer = await file.arrayBuffer()
         const fileBytes = new Uint8Array(arrayBuffer)
 
-        try {
-          // Insert initial document row with 'pending' status
-          await db.query(
-            `INSERT INTO documents (id, collection_id, source_type, name, mime_type, size_bytes, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [docId, 'default', file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
+        // Insert initial document row with 'pending' status
+        await db.query(
+          `INSERT INTO documents (id, collection_id, source_type, name, mime_type, size_bytes, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [docId, 'default', file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
+        )
+
+        // Run Web Worker for off-thread parsing and chunking
+        await new Promise<void>((resolve, reject) => {
+          const worker = new Worker(
+            new URL('../workers/indexing.worker.ts', import.meta.url),
+            { type: 'module' }
           )
 
-          // Perform text extraction
-          const extraction = await extractTextFromFile(fileBytes, file.name, file.type)
-
-          // Update document row with completed status and metadata
-          const ocrRequired = extraction.metadata?.ocrRequired ? 1 : 0
-          const metadataJson = JSON.stringify({
-            extractedText: extraction.text,
-            ocrRequired,
-            pageCount: extraction.metadata?.pageCount || 1,
-            extension: extraction.metadata?.extension || file.name.split('.').pop(),
+          worker.postMessage({
+            docId,
+            fileBytes,
+            fileName: file.name,
+            mimeType: file.type,
+            options: {
+              chunkSize: 500,
+              chunkOverlap: 100,
+            },
           })
 
-          await db.query(
-            `UPDATE documents
-             SET status = $1, metadata_json = $2, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $3`,
-            ['completed', metadataJson, docId]
-          )
-        } catch (error: any) {
-          // Update status to failed
-          await db.query(
-            `UPDATE documents
-             SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $3`,
-            ['failed', error?.message || 'Text extraction failed', docId]
-          )
-          throw error
-        }
+          worker.onmessage = async (event) => {
+            const { status, extraction, chunks, error } = event.data
+
+            if (status === 'success') {
+              try {
+                const ocrRequired = extraction.metadata?.ocrRequired ? 1 : 0
+                const metadataJson = JSON.stringify({
+                  ocrRequired,
+                  pageCount: extraction.metadata?.pageCount || 1,
+                  extension: extraction.metadata?.extension || file.name.split('.').pop(),
+                })
+
+                // Use transaction to update document and insert chunks atomically
+                await db.transaction(async (tx) => {
+                  await tx.query(
+                    `UPDATE documents
+                     SET status = $1, metadata_json = $2, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = $3`,
+                    ['completed', metadataJson, docId]
+                  )
+
+                  for (const chunk of chunks) {
+                    const chunkId = crypto.randomUUID()
+                    await tx.query(
+                      `INSERT INTO chunks (
+                        id, document_id, chunk_index, text, token_count,
+                        embedding_model_id, embedding_provider_id, embedding_dimensions, metadata_json
+                      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                      [
+                        chunkId,
+                        docId,
+                        chunk.chunkIndex,
+                        chunk.text,
+                        chunk.tokenCount,
+                        'none',
+                        'none',
+                        0,
+                        JSON.stringify({
+                          startOffset: chunk.startOffset,
+                          endOffset: chunk.endOffset,
+                          pageNumber: chunk.pageNumber,
+                          headingPath: chunk.headingPath,
+                        }),
+                      ]
+                    )
+                  }
+                })
+
+                worker.terminate()
+                resolve()
+              } catch (writeErr) {
+                worker.terminate()
+                reject(writeErr)
+              }
+            } else {
+              // Update status to failed
+              await db.query(
+                `UPDATE documents
+                 SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $3`,
+                ['failed', error || 'Worker parsing/chunking failed', docId]
+              )
+              worker.terminate()
+              reject(new Error(error))
+            }
+          }
+
+          worker.onerror = async (err) => {
+            await db.query(
+              `UPDATE documents
+               SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
+               WHERE id = $3`,
+              ['failed', err.message || 'Worker runtime error', docId]
+            )
+            worker.terminate()
+            reject(err)
+          }
+        })
       }
     },
     onSuccess: () => {
