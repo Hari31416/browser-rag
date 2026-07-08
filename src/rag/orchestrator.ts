@@ -30,8 +30,6 @@ export async function* generateRAGAnswer(
       projectId: options.projectId,
       documentId: options.documentId,
       documentIds: options.documentIds,
-      topK: prefs.retrievalTopK,
-      hybridEnabled: prefs.hybridRetrievalEnabled,
     })
 
     // Yield citations immediately so the UI shows references while LLM starts generating

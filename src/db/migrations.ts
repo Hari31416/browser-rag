@@ -18,6 +18,10 @@ export const migrations: Migration[] = [
         name TEXT NOT NULL,
         description TEXT,
         embedding_model_id TEXT NOT NULL,
+        chunk_size INTEGER DEFAULT 500,
+        chunk_overlap INTEGER DEFAULT 100,
+        retrieval_top_k INTEGER DEFAULT 5,
+        hybrid_retrieval_enabled BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 

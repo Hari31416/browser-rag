@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { History, Trash2, Search, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useSystemInit } from '@/context/system-init-context'
+import { marked } from 'marked'
 
 export const Route = createFileRoute('/history')({
   component: HistoryComponent,
@@ -60,7 +61,7 @@ function HistoryComponent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Query History</h1>
@@ -104,9 +105,14 @@ function HistoryComponent() {
                   <h3 className="font-semibold text-foreground text-base line-clamp-1 group-hover:text-primary transition-colors">
                     {item.query}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {item.answer ? item.answer.replace(/<[^>]*>?/gm, '') : 'No answer generated'}
-                  </p>
+                  <div
+                    className="text-sm text-muted-foreground mt-1 line-clamp-2 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0"
+                    dangerouslySetInnerHTML={{
+                      __html: item.answer
+                        ? (marked.parse(item.answer, { async: false }) as string)
+                        : 'No answer generated'
+                    }}
+                  />
                   <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground/70">
                     <span className="flex items-center gap-1">
                       <History className="h-3.5 w-3.5" />

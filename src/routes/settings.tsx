@@ -14,7 +14,7 @@ export const Route = createFileRoute('/settings')({
 })
 
 function SettingsComponent() {
-  const { preferences: prefs, updatePreferences } = useSystemInit()
+  const { preferences: prefs, updatePreferences, activeProject, updateActiveProject } = useSystemInit()
   const [isSaved, setIsSaved] = useState(false)
 
   // Database status state
@@ -34,8 +34,15 @@ function SettingsComponent() {
     wasmMultiThreading: false,
   })
 
-  const handleSave = (newPrefs: Partial<Preferences>) => {
+  const handleSavePrefs = (newPrefs: Partial<Preferences>) => {
     updatePreferences(newPrefs)
+    setIsSaved(true)
+    setTimeout(() => setIsSaved(false), 2000)
+  }
+
+  const handleSaveProject = async (updates: any) => {
+    if (!activeProject) return
+    await updateActiveProject(updates)
     setIsSaved(true)
     setTimeout(() => setIsSaved(false), 2000)
   }
@@ -127,9 +134,10 @@ function SettingsComponent() {
               <label className='text-xs font-semibold text-muted-foreground'>Chunk Size (Characters)</label>
               <Input
                 type='number'
-                value={prefs.chunkSize}
-                onChange={(e) => handleSave({ chunkSize: parseInt(e.target.value) || 500 })}
+                value={activeProject?.chunkSize ?? 500}
+                onChange={(e) => handleSaveProject({ chunkSize: parseInt(e.target.value) || 500 })}
                 className='bg-background/50 border-border/45 h-9 text-xs'
+                disabled={!activeProject}
               />
               <p className='text-[10px] text-muted-foreground'>Maximum length of text segments.</p>
             </div>
@@ -138,9 +146,10 @@ function SettingsComponent() {
               <label className='text-xs font-semibold text-muted-foreground'>Chunk Overlap (Characters)</label>
               <Input
                 type='number'
-                value={prefs.chunkOverlap}
-                onChange={(e) => handleSave({ chunkOverlap: parseInt(e.target.value) || 100 })}
+                value={activeProject?.chunkOverlap ?? 100}
+                onChange={(e) => handleSaveProject({ chunkOverlap: parseInt(e.target.value) || 100 })}
                 className='bg-background/50 border-border/45 h-9 text-xs'
+                disabled={!activeProject}
               />
               <p className='text-[10px] text-muted-foreground'>Buffer overlap size to preserve context between chunks.</p>
             </div>
@@ -149,9 +158,10 @@ function SettingsComponent() {
               <label className='text-xs font-semibold text-muted-foreground'>Retrieval Limit (Top-K)</label>
               <Input
                 type='number'
-                value={prefs.retrievalTopK}
-                onChange={(e) => handleSave({ retrievalTopK: parseInt(e.target.value) || 5 })}
+                value={activeProject?.retrievalTopK ?? 5}
+                onChange={(e) => handleSaveProject({ retrievalTopK: parseInt(e.target.value) || 5 })}
                 className='bg-background/50 border-border/45 h-9 text-xs'
+                disabled={!activeProject}
               />
               <p className='text-[10px] text-muted-foreground'>Number of chunks fed to the LLM context.</p>
             </div>
@@ -163,12 +173,13 @@ function SettingsComponent() {
               </div>
               <button
                 type='button'
-                onClick={() => handleSave({ hybridRetrievalEnabled: !prefs.hybridRetrievalEnabled })}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${prefs.hybridRetrievalEnabled ? 'bg-primary' : 'bg-secondary'
+                disabled={!activeProject}
+                onClick={() => handleSaveProject({ hybridRetrievalEnabled: !activeProject?.hybridRetrievalEnabled })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${activeProject?.hybridRetrievalEnabled ? 'bg-primary' : 'bg-secondary'
                   }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${prefs.hybridRetrievalEnabled ? 'translate-x-4' : 'translate-x-0'
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${activeProject?.hybridRetrievalEnabled ? 'translate-x-4' : 'translate-x-0'
                     }`}
                 />
               </button>
@@ -191,8 +202,8 @@ function SettingsComponent() {
                 <label className='text-xs font-semibold text-muted-foreground'>Select Model Option</label>
                 <select
                   value={prefs.llmVariantId}
-                  onChange={(e) => handleSave({ llmVariantId: e.target.value, llmModelId: getLLMOption(e.target.value).logicalModelId })}
-                  className='w-full bg-background/50 border border-border/45 rounded-lg p-2 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none transition-all'
+                  onChange={(e) => handleSavePrefs({ llmVariantId: e.target.value, llmModelId: getLLMOption(e.target.value).logicalModelId })}
+                  className='w-full px-3 py-2 text-xs bg-background/50 border border-border/45 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-colors h-9 text-foreground'
                 >
                   {LLM_OPTIONS.map((opt) => (
                     <option key={opt.id} value={opt.id}>
@@ -236,7 +247,10 @@ function SettingsComponent() {
 
             <div className='flex justify-end pt-4 shrink-0'>
               <Button
-                onClick={() => handleSave({})}
+                onClick={() => {
+                  setIsSaved(true)
+                  setTimeout(() => setIsSaved(false), 2000)
+                }}
                 className='shadow-md flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground select-none w-full sm:w-auto h-9 text-xs'
               >
                 {isSaved ? (

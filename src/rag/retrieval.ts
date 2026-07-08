@@ -44,9 +44,21 @@ export async function retrieveChunks(
 
   const db = getDb()
 
-  const hybridEnabled = options?.hybridEnabled ?? true
-  const topK = options?.topK ?? 5
+  let hybridEnabled = options?.hybridEnabled ?? true
+  let topK = options?.topK ?? 5
   const rrfConstant = options?.rrfConstant ?? 60
+
+  if (options.projectId) {
+    const projectRes = await db.query<any>(
+      'SELECT retrieval_top_k, hybrid_retrieval_enabled FROM projects WHERE id = $1',
+      [options.projectId]
+    )
+    if (projectRes.rows.length > 0) {
+      const p = projectRes.rows[0]
+      topK = p.retrieval_top_k !== null ? p.retrieval_top_k : topK
+      hybridEnabled = p.hybrid_retrieval_enabled !== null ? p.hybrid_retrieval_enabled : hybridEnabled
+    }
+  }
 
   const modelConfig = getEmbeddingModelConfig(options.embeddingModelId)
   if (!modelConfig) {

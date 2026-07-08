@@ -2,20 +2,12 @@ export interface Preferences {
   activeProjectId: string | null
   llmModelId: string
   llmVariantId: string
-  chunkSize: number
-  chunkOverlap: number
-  retrievalTopK: number
-  hybridRetrievalEnabled: boolean
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
   activeProjectId: null,
   llmModelId: 'qwen-3.5-0.8b',
   llmVariantId: 'transformers-js',
-  chunkSize: 500,
-  chunkOverlap: 100,
-  retrievalTopK: 5,
-  hybridRetrievalEnabled: true,
 }
 
 const STORAGE_KEY = 'browser-rag-preferences'

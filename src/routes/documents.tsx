@@ -30,7 +30,6 @@ function DocumentsComponent() {
 
   // Consume from system context
   const {
-    preferences: prefs,
     activeProject,
     embeddingReady,
     embeddingLoading,
@@ -115,8 +114,8 @@ function DocumentsComponent() {
             fileName: file.name,
             mimeType: file.type,
             options: {
-              chunkSize: prefs.chunkSize,
-              chunkOverlap: prefs.chunkOverlap,
+              chunkSize: activeProject?.chunkSize ?? 500,
+              chunkOverlap: activeProject?.chunkOverlap ?? 100,
             },
           })
 

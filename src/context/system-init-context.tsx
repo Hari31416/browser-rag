@@ -7,7 +7,7 @@ import { useQwen35 } from '@/hooks/use-qwen35'
 import { getLLMVariant } from '@/llm/llm-models'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 import { getEmbeddingProvider, localProvider } from '@/rag/embedding-runtime'
-import { type Project, getProject, listProjects, createProject } from '@/lib/projects'
+import { type Project, getProject, listProjects, createProject, updateProject } from '@/lib/projects'
 import { isDbInitialized } from '@/db/client'
 
 interface SystemInitContextType {
@@ -17,6 +17,7 @@ interface SystemInitContextType {
   // Project state
   activeProject: Project | null
   setActiveProject: (project: Project) => void
+  updateActiveProject: (updates: Partial<Project>) => Promise<void>
 
   // LLM handles
   gemma4: ReturnType<typeof useGemma4>
@@ -139,6 +140,18 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
     setPreferencesState(updated)
   }, [])
 
+  // Update active project details and database settings
+  const updateActiveProject = useCallback(async (updates: Partial<Project>) => {
+    if (!activeProject) return
+    try {
+      const updated = await updateProject(activeProject.id, updates)
+      setActiveProjectState(updated)
+    } catch (err) {
+      console.error('Failed to update active project:', err)
+      throw err
+    }
+  }, [activeProject])
+
   // Set active project and persist to preferences
   const setActiveProject = useCallback((project: Project) => {
     setActiveProjectState(project)
@@ -196,6 +209,7 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
         updatePreferences,
         activeProject,
         setActiveProject,
+        updateActiveProject,
         gemma4,
         webllm,
         lfm2,
