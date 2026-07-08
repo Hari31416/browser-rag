@@ -21,11 +21,6 @@ export function TopBar({ title }: TopBarProps) {
             <span>WebGPU:</span>
             <span className="font-mono text-foreground font-semibold">Supported</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Server className="h-3.5 w-3.5" />
-            <span>Database:</span>
-            <span className="font-mono text-foreground font-semibold">PGlite</span>
-          </div>
         </div>
 
         {/* Theme Toggle Button */}

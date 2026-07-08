@@ -41,14 +41,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-border bg-accent/20">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Local Engine</span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full font-medium bg-emerald-500/10 text-emerald-500">
-            Online
-          </span>
-        </div>
-      </div>
     </aside>
   )
 }
