@@ -5,6 +5,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button'
 import { UploadPanel } from '@/components/documents/upload-panel'
 import { isDbInitialized, getDb } from '@/db/client'
+import { loadPreferences } from '@/lib/preferences'
+import { getEmbeddingProvider } from '@/rag/embedding-runtime'
+import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/documents')({
@@ -55,6 +58,12 @@ function DocumentsComponent() {
     mutationFn: async (files: File[]) => {
       if (!dbReady) throw new Error('Database not ready')
       const db = getDb()
+      const prefs = loadPreferences()
+      const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
+      if (!modelConfig) {
+        throw new Error(`Embedding model configuration not found for: ${prefs.embeddingModelId}`)
+      }
+      const provider = getEmbeddingProvider(prefs.embeddingProviderId)
 
       for (const file of files) {
         setUploadingStatus(`Processing ${file.name}...`)
@@ -82,8 +91,8 @@ function DocumentsComponent() {
             fileName: file.name,
             mimeType: file.type,
             options: {
-              chunkSize: 500,
-              chunkOverlap: 100,
+              chunkSize: prefs.chunkSize,
+              chunkOverlap: prefs.chunkOverlap,
             },
           })
 
@@ -92,6 +101,27 @@ function DocumentsComponent() {
 
             if (status === 'success') {
               try {
+                setUploadingStatus(`Loading embedding model ${modelConfig.displayName}...`)
+                await provider.load(modelConfig.modelId, (prog: any) => {
+                  if (prog.type === 'load') {
+                    setUploadingStatus(
+                      `Downloading ${modelConfig.displayName}: ${Math.round(prog.progress)}%`
+                    )
+                  }
+                })
+
+                setUploadingStatus(`Generating embeddings for ${chunks.length} chunks...`)
+                const chunkTexts = chunks.map((c: any) => c.text)
+                const embeddingResults = await provider.embedTexts(chunkTexts, {
+                  onProgress: (prog: any) => {
+                    if (prog.type === 'embed') {
+                      setUploadingStatus(
+                        `Embedding chunks: ${prog.current} of ${prog.total}`
+                      )
+                    }
+                  },
+                })
+
                 const ocrRequired = extraction.metadata?.ocrRequired ? 1 : 0
                 const metadataJson = JSON.stringify({
                   ocrRequired,
@@ -108,22 +138,26 @@ function DocumentsComponent() {
                     ['completed', metadataJson, docId]
                   )
 
-                  for (const chunk of chunks) {
+                  for (let i = 0; i < chunks.length; i++) {
+                    const chunk = chunks[i]
+                    const embeddingVector = embeddingResults[i].embedding
+                    const vectorString = `[${embeddingVector.join(',')}]`
                     const chunkId = crypto.randomUUID()
                     await tx.query(
                       `INSERT INTO chunks (
                         id, document_id, chunk_index, text, token_count,
-                        embedding_model_id, embedding_provider_id, embedding_dimensions, metadata_json
-                      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                        embedding_model_id, embedding_provider_id, embedding_dimensions, embedding, metadata_json
+                      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                       [
                         chunkId,
                         docId,
                         chunk.chunkIndex,
                         chunk.text,
                         chunk.tokenCount,
-                        'none',
-                        'none',
-                        0,
+                        modelConfig.id,
+                        provider.id,
+                        modelConfig.dimensions,
+                        vectorString,
                         JSON.stringify({
                           startOffset: chunk.startOffset,
                           endOffset: chunk.endOffset,
@@ -172,7 +206,7 @@ function DocumentsComponent() {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
     },
     onError: (error) => {
-      setUploadingStatus(`Upload failed: ${error.message}`)
+      setUploadingStatus(`Indexing failed: ${error.message}`)
       setTimeout(() => setUploadingStatus(null), 5000)
     },
   })
