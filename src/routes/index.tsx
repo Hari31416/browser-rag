@@ -18,7 +18,7 @@ function DashboardComponent() {
     <div className="space-y-8 animate-fade-in">
       <div className="space-y-2">
         <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-          Welcome to Antigravity RAG
+          Welcome to Browser RAG
         </h2>
         <p className="text-muted-foreground text-sm max-w-2xl">
           A fully client-side, local-first Retrieval-Augmented Generation application. All document processing, vector search, and LLM generation happen entirely within your browser. No data ever leaves your device.

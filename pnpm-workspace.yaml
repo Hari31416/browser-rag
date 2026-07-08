@@ -3,3 +3,9 @@ packages: []
 allowBuilds:
   esbuild: true
   msw: false
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - '@llamaindex/liteparse-wasm@2.5.0'

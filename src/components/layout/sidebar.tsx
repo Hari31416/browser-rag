@@ -15,7 +15,7 @@ export function Sidebar() {
       <div className="h-16 px-6 border-b border-border flex items-center gap-2">
         <Brain className="h-6 w-6 text-primary animate-pulse" />
         <span className="font-semibold text-lg bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-          Antigravity RAG
+          Browser RAG
         </span>
       </div>
 
