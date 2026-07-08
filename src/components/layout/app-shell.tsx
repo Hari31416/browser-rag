@@ -26,6 +26,12 @@ export function AppShell({ children }: AppShellProps) {
     })
   }
 
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
+
+  useEffect(() => {
+    setIsMobileOpen(false)
+  }, [location.pathname])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
@@ -49,7 +55,7 @@ export function AppShell({ children }: AppShellProps) {
       case '/projects':
         return 'Projects'
       case '/documents':
-        return 'Document Management'
+        return 'Documents'
       case '/settings':
         return 'Settings'
       default:
@@ -63,14 +69,22 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />
+      <Sidebar
+        isCollapsed={isCollapsed}
+        onToggle={toggleSidebar}
+        isMobileOpen={isMobileOpen}
+        onMobileClose={() => setIsMobileOpen(false)}
+      />
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
-        <TopBar title={getPageTitle(location.pathname)} />
+        <TopBar
+          title={getPageTitle(location.pathname)}
+          onMenuToggle={() => setIsMobileOpen((o) => !o)}
+        />
         <main className={cn(
           'flex-1 min-h-0 bg-background/50',
           location.pathname === '/'
             ? 'overflow-hidden flex flex-col'
-            : 'overflow-y-auto p-6'
+            : 'overflow-y-auto p-4 md:p-6'
         )}>
           {location.pathname === '/' ? (
             <div className="flex flex-col flex-1 min-h-0 h-full">

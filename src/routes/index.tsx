@@ -131,7 +131,7 @@ function ChatBubble({ message, onCopy }: { message: ChatMessage; onCopy: (t: str
   if (message.role === 'user') {
     return (
       <div className="flex items-end justify-end gap-2.5 group">
-        <div className="max-w-[70%] flex flex-col items-end gap-1">
+        <div className="max-w-[85%] md:max-w-[70%] flex flex-col items-end gap-1">
           <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-br-sm text-sm leading-relaxed shadow-md">
             {message.content}
           </div>
@@ -153,7 +153,7 @@ function ChatBubble({ message, onCopy }: { message: ChatMessage; onCopy: (t: str
         <Sparkles className="h-3.5 w-3.5 text-primary" />
       </div>
 
-      <div className="max-w-[80%] flex flex-col gap-1.5 min-w-0">
+      <div className="max-w-[90%] md:max-w-[80%] flex flex-col gap-1.5 min-w-0">
         {/* Thinking */}
         {message.thinking && (
           <div className="border border-border/30 rounded-xl overflow-hidden bg-muted/20 text-xs">
@@ -546,10 +546,10 @@ function ChatComponent() {
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="w-full px-6 py-8 space-y-8">
+          <div className="w-full px-4 md:px-6 py-6 md:py-8 space-y-6 md:space-y-8">
             {/* Empty state */}
             {messages.length === 0 && !errorMessage && (
-              <div className="flex flex-col items-center justify-center text-center text-muted-foreground space-y-5 pt-24 select-none">
+              <div className="flex flex-col items-center justify-center text-center text-muted-foreground space-y-5 pt-12 md:pt-24 select-none">
                 <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center shadow-inner">
                   <Search className="h-7 w-7 text-primary/50" />
                 </div>
@@ -584,7 +584,7 @@ function ChatComponent() {
 
         {/* Active filter strip */}
         {selectedDocIds.size > 0 && (
-          <div className="flex flex-wrap gap-1.5 items-center px-6 py-1.5 border-t border-border/20 bg-card/10 shrink-0">
+          <div className="flex flex-wrap gap-1.5 items-center px-4 md:px-6 py-1.5 border-t border-border/20 bg-card/10 shrink-0">
             <span className="text-[10px] text-muted-foreground">Filtering:</span>
             {projectDocs.filter((d: any) => selectedDocIds.has(d.id)).map((d: any) => (
               <span key={d.id} className="inline-flex items-center gap-1 text-[10px] bg-primary/10 border border-primary/25 text-primary px-2 py-0.5 rounded-full">
@@ -598,7 +598,7 @@ function ChatComponent() {
         )}
 
         {/* Input area */}
-        <div className="shrink-0 px-6 py-4 bg-background/80 backdrop-blur-sm border-t border-border/30">
+        <div className="shrink-0 px-4 md:px-6 py-3 md:py-4 bg-background/80 backdrop-blur-sm border-t border-border/30">
           <div className="w-full">
             {statusMessage && (
               <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-secondary/40 px-2.5 py-1 rounded-full border border-border/30 w-fit mb-2">

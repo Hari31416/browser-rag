@@ -152,7 +152,7 @@ export function ProjectSwitcher() {
         )}
       >
         <FolderOpen className='h-3.5 w-3.5 text-primary/80 shrink-0' />
-        <span className='max-w-[140px] truncate'>
+        <span className='max-w-[90px] sm:max-w-[140px] truncate'>
           {activeProject?.name ?? 'Select project'}
         </span>
         <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 shrink-0', open && 'rotate-180')} />

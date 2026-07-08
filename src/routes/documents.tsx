@@ -398,55 +398,99 @@ function DocumentsComponent() {
                   <span>No documents indexed yet. Use the upload panel to add some.</span>
                 </div>
               ) : (
-                <div className='border border-border/50 rounded-lg overflow-hidden'>
-                  <table className='w-full text-left text-sm border-collapse'>
-                    <thead>
-                      <tr className='bg-accent/40 border-b border-border/50'>
-                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Name</th>
-                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Size</th>
-                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Status</th>
-                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground text-right'>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className='divide-y divide-border/40'>
-                      {documents.map((doc: any) => (
-                        <tr key={doc.id} className='hover:bg-accent/10 transition-colors'>
-                          <td className='p-3 font-medium max-w-[200px] truncate'>{doc.name}</td>
-                          <td className='p-3 text-muted-foreground font-mono text-xs'>
-                            {formatBytes(doc.size_bytes)}
-                          </td>
-                          <td className='p-3'>
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                doc.status === 'completed'
-                                  ? 'bg-emerald-500/10 text-emerald-500'
-                                  : doc.status === 'failed'
-                                    ? 'bg-destructive/10 text-destructive'
-                                    : 'bg-amber-500/10 text-amber-500 animate-pulse'
-                              }`}
-                            >
-                              {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
-                              {doc.status === 'failed' && <AlertCircle className='h-3 w-3' />}
-                              {doc.status === 'processing' && <Loader2 className='h-3 w-3 animate-spin' />}
-                              {doc.status === 'pending' && <Loader2 className='h-3 w-3 animate-spin' />}
-                              <span className='capitalize'>{doc.status}</span>
-                            </span>
-                          </td>
-                          <td className='p-3 text-right'>
+                <div className='space-y-4'>
+                  {/* Desktop Table View */}
+                  <div className='hidden sm:block border border-border/50 rounded-lg overflow-hidden'>
+                    <table className='w-full text-left text-sm border-collapse'>
+                      <thead>
+                        <tr className='bg-accent/40 border-b border-border/50'>
+                          <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Name</th>
+                          <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Size</th>
+                          <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Status</th>
+                          <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground text-right'>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className='divide-y divide-border/40'>
+                        {documents.map((doc: any) => (
+                          <tr key={doc.id} className='hover:bg-accent/10 transition-colors'>
+                            <td className='p-3 font-medium max-w-[200px] truncate'>{doc.name}</td>
+                            <td className='p-3 text-muted-foreground font-mono text-xs'>
+                              {formatBytes(doc.size_bytes)}
+                            </td>
+                            <td className='p-3'>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  doc.status === 'completed'
+                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                    : doc.status === 'failed'
+                                      ? 'bg-destructive/10 text-destructive'
+                                      : 'bg-amber-500/10 text-amber-500 animate-pulse'
+                                }`}
+                              >
+                                {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
+                                {doc.status === 'failed' && <AlertCircle className='h-3 w-3' />}
+                                {doc.status === 'processing' && <Loader2 className='h-3 w-3 animate-spin' />}
+                                {doc.status === 'pending' && <Loader2 className='h-3 w-3 animate-spin' />}
+                                <span className='capitalize'>{doc.status}</span>
+                              </span>
+                            </td>
+                            <td className='p-3 text-right'>
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                disabled={deleteMutation.isPending}
+                                onClick={() => deleteMutation.mutate(doc.id)}
+                                className='h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
+                              >
+                                <Trash2 className='h-4 w-4' />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Card List View */}
+                  <div className='sm:hidden space-y-3'>
+                    {documents.map((doc: any) => (
+                      <div key={doc.id} className='p-3 rounded-lg border border-border/45 bg-accent/5 flex flex-col gap-2 relative'>
+                        <div className='flex items-start justify-between gap-2 pr-8'>
+                          <p className='font-medium text-xs text-foreground break-all line-clamp-2'>{doc.name}</p>
+                          <div className='absolute top-2.5 right-2.5'>
                             <Button
                               variant='ghost'
                               size='icon'
                               disabled={deleteMutation.isPending}
                               onClick={() => deleteMutation.mutate(doc.id)}
-                              className='h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
+                              className='h-7 w-7 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
                             >
-                              <Trash2 className='h-4 w-4' />
+                              <Trash2 className='h-3.5 w-3.5' />
                             </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                        <div className='flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap'>
+                          <span className='font-mono'>{formatBytes(doc.size_bytes)}</span>
+                          <span>·</span>
+                          <span
+                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${
+                              doc.status === 'completed'
+                                ? 'bg-emerald-500/10 text-emerald-500'
+                                : doc.status === 'failed'
+                                  ? 'bg-destructive/10 text-destructive'
+                                  : 'bg-amber-500/10 text-amber-500 animate-pulse'
+                            }`}
+                          >
+                            {doc.status === 'completed' && <CheckCircle2 className='h-2.5 w-2.5 font-semibold' />}
+                            {doc.status === 'failed' && <AlertCircle className='h-2.5 w-2.5' />}
+                            {doc.status === 'processing' && <Loader2 className='h-2.5 w-2.5 animate-spin' />}
+                            {doc.status === 'pending' && <Loader2 className='h-2.5 w-2.5 animate-spin' />}
+                            <span className='capitalize'>{doc.status}</span>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>

@@ -65,9 +65,9 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
   }
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in'>
-      <Card className='w-full max-w-md bg-card/90 border-border/60 shadow-2xl backdrop-blur-xl relative overflow-hidden rounded-2xl'>
-        <div className='absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/20 via-primary to-primary/20' />
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in p-4'>
+      <Card className='w-full max-w-md max-h-[90vh] overflow-y-auto bg-card/90 border-border/60 shadow-2xl backdrop-blur-xl relative rounded-2xl'>
+        <div className='absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/20 via-primary to-primary/20 shrink-0' />
         <CardHeader className='pb-4 pt-6'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
@@ -375,7 +375,7 @@ function ProjectsComponent() {
                           e.stopPropagation()
                           handleDelete(project)
                         }}
-                        className='h-8 w-8 shrink-0 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity'
+                        className='h-8 w-8 shrink-0 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity'
                         title='Delete project'
                       >
                         <Trash2 className='h-4 w-4' />
