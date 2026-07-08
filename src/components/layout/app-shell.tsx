@@ -56,6 +56,10 @@ export function AppShell({ children }: AppShellProps) {
     }
   }
 
+  useEffect(() => {
+    document.title = `${getPageTitle(location.pathname)} | Browser RAG`
+  }, [location.pathname])
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <Sidebar isCollapsed={isCollapsed} onToggle={toggleSidebar} />

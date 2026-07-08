@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router'
-import { LayoutDashboard, FileText, Search, Settings, Activity, Brain, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, FileText, Search, Settings, Activity, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/ui/logo'
 
 interface SidebarProps {
   isCollapsed: boolean
@@ -31,9 +32,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         )}
       >
         <div className="flex items-center gap-2 overflow-hidden shrink-0">
-          <Brain className="h-6 w-6 text-primary animate-pulse shrink-0" />
+          <Logo size={24} className="text-primary animate-pulse" />
           {!isCollapsed && (
-            <span className="font-semibold text-lg bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent truncate">
+            <span className="font-semibold text-lg text-primary truncate">
               Browser RAG
             </span>
           )}
