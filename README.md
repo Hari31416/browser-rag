@@ -1,5 +1,8 @@
 # Browser RAG
 
+> [!WARNING]
+> This project is a Work in Progress (WIP). Features, APIs, and documentation are subject to change.
+
 A fully local, private Retrieval-Augmented Generation (RAG) system running entirely within your web browser. This application keeps all document parsing, text chunking, embedding generation, vector database search, and large language model (LLM) inference on the client side. No data leaves your machine.
 
 ## Key Features
