@@ -4,22 +4,22 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertTriangle, Save, RefreshCw, Cpu, CheckCircle2 } from 'lucide-react'
-import { loadPreferences, savePreferences, type Preferences } from '@/lib/preferences'
+import { type Preferences } from '@/lib/preferences'
 import { EMBEDDING_MODELS } from '@/rag/embedding-models'
 import { LLM_OPTIONS } from '@/llm/llm-models'
+import { useSystemInit } from '@/context/system-init-context'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsComponent,
 })
 
 function SettingsComponent() {
-  const [prefs, setPrefs] = useState<Preferences>(loadPreferences())
+  const { preferences: prefs, updatePreferences } = useSystemInit()
   const [isSaved, setIsSaved] = useState(false)
   const [showReindexWarning, setShowReindexWarning] = useState(false)
 
   const handleSave = (newPrefs: Partial<Preferences>) => {
-    const updated = savePreferences(newPrefs)
-    setPrefs(updated)
+    updatePreferences(newPrefs)
     setIsSaved(true)
     setTimeout(() => setIsSaved(false), 2000)
   }

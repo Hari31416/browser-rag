@@ -37,6 +37,10 @@ export function useLfm2(options: UseLfm2Options = {}) {
   const loadModel = useCallback(
     async (modelId: string): Promise<boolean> => {
       if (loadingRef.current) return false
+      if (modelRef.current && currentModel === modelId) {
+        updateStatus("ready")
+        return true
+      }
 
       loadingRef.current = true
       updateStatus("loading")

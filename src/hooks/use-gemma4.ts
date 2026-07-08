@@ -97,6 +97,10 @@ export function useGemma4(options: UseGemma4Options = {}) {
   const loadModel = useCallback(
     async (modelId: string = GEMMA4_MODEL_ID): Promise<boolean> => {
       if (loadingRef.current) return false
+      if (modelRef.current) {
+        updateStatus("ready")
+        return true
+      }
 
       loadingRef.current = true
       updateStatus("loading")

@@ -5,10 +5,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button'
 import { UploadPanel } from '@/components/documents/upload-panel'
 import { isDbInitialized, getDb } from '@/db/client'
-import { loadPreferences } from '@/lib/preferences'
 import { getEmbeddingProvider } from '@/rag/embedding-runtime'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
-import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2, Layers } from 'lucide-react'
+import { useSystemInit } from '@/context/system-init-context'
 
 export const Route = createFileRoute('/documents')({
   component: DocumentsComponent,
@@ -27,6 +27,17 @@ function DocumentsComponent() {
   const queryClient = useQueryClient()
   const [dbReady, setDbReady] = useState(isDbInitialized())
   const [uploadingStatus, setUploadingStatus] = useState<string | null>(null)
+
+  // Consume from system context
+  const {
+    preferences: prefs,
+    embeddingReady,
+    embeddingLoading,
+    embeddingProgress,
+    loadEmbeddingModel
+  } = useSystemInit()
+
+  const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
 
   useEffect(() => {
     if (dbReady) return
@@ -58,7 +69,6 @@ function DocumentsComponent() {
     mutationFn: async (files: File[]) => {
       if (!dbReady) throw new Error('Database not ready')
       const db = getDb()
-      const prefs = loadPreferences()
       const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
       if (!modelConfig) {
         throw new Error(`Embedding model configuration not found for: ${prefs.embeddingModelId}`)
@@ -271,15 +281,59 @@ function DocumentsComponent() {
               <CardDescription>Select documents to parse and add to the index.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <UploadPanel
-                onFilesSelected={handleFilesSelected}
-                disabled={uploadMutation.isPending || !dbReady}
-              />
-              {uploadingStatus && (
-                <div className="flex items-center gap-2 p-3 bg-accent/40 rounded-lg text-xs text-foreground font-medium animate-pulse border border-border/40">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                  <span>{uploadingStatus}</span>
+              {!embeddingReady ? (
+                <div className="space-y-4 p-4 border border-border/40 rounded-xl bg-accent/5 flex flex-col items-center text-center gap-3">
+                  <div className="p-3 bg-primary/10 rounded-full text-primary animate-pulse">
+                    <Layers className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-sm">Embedding Model Required</h4>
+                    <p className="text-[11px] text-muted-foreground max-w-[200px] mx-auto">
+                      Load the embedding model to extract document features and index them.
+                    </p>
+                    <p className="text-[10px] text-primary/95 font-semibold mt-1">
+                      Active: {modelConfig?.displayName || 'None'}
+                    </p>
+                  </div>
+                  
+                  {embeddingLoading ? (
+                    <div className="w-full space-y-1.5 pt-2">
+                      <div className="flex justify-between text-[10px] font-semibold text-muted-foreground font-mono">
+                        <span className="flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                          Downloading...
+                        </span>
+                        <span>{embeddingProgress}%</span>
+                      </div>
+                      <div className="w-full bg-secondary/30 h-1 rounded-full overflow-hidden">
+                        <div
+                          className="bg-primary h-full transition-all duration-300"
+                          style={{ width: `${embeddingProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={loadEmbeddingModel}
+                      className="w-full mt-2 font-semibold shadow-md"
+                    >
+                      Load Embedding Model
+                    </Button>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <UploadPanel
+                    onFilesSelected={handleFilesSelected}
+                    disabled={uploadMutation.isPending || !dbReady}
+                  />
+                  {uploadingStatus && (
+                    <div className="flex items-center gap-2 p-3 bg-accent/40 rounded-lg text-xs text-foreground font-medium animate-pulse border border-border/40">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                      <span>{uploadingStatus}</span>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
