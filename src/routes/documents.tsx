@@ -65,12 +65,15 @@ function DocumentsComponent() {
       }
       const provider = getEmbeddingProvider(prefs.embeddingProviderId)
 
+      console.log('[INDEXING START] Processing files:', files.map(f => f.name))
+
       for (const file of files) {
         setUploadingStatus(`Processing ${file.name}...`)
         const docId = crypto.randomUUID()
         const arrayBuffer = await file.arrayBuffer()
         const fileBytes = new Uint8Array(arrayBuffer)
 
+        console.log(`[INDEXING STEP] Inserting pending record for document: ${file.name} (ID: ${docId})`)
         // Insert initial document row with 'pending' status
         await db.query(
           `INSERT INTO documents (id, collection_id, source_type, name, mime_type, size_bytes, status)
@@ -78,6 +81,10 @@ function DocumentsComponent() {
           [docId, 'default', file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
         )
 
+        // Force react-query to refresh listing so the UI immediately shows 'pending'
+        queryClient.invalidateQueries({ queryKey: ['documents'] })
+
+        console.log(`[INDEXING STEP] Spawning indexing.worker for: ${file.name}`)
         // Run Web Worker for off-thread parsing and chunking
         await new Promise<void>((resolve, reject) => {
           const worker = new Worker(
@@ -98,9 +105,11 @@ function DocumentsComponent() {
 
           worker.onmessage = async (event) => {
             const { status, extraction, chunks, error } = event.data
+            console.log(`[INDEXING WORKER ONMESSAGE] Status: ${status} for file: ${file.name}`)
 
             if (status === 'success') {
               try {
+                console.log(`[INDEXING STEP] Text extraction successful. Chunks count: ${chunks.length}. Loading embedding provider: ${provider.id}`)
                 setUploadingStatus(`Loading embedding model ${modelConfig.displayName}...`)
                 await provider.load(modelConfig.modelId, (prog: any) => {
                   if (prog.type === 'load') {
@@ -110,6 +119,7 @@ function DocumentsComponent() {
                   }
                 })
 
+                console.log(`[INDEXING STEP] Embedding model ready. Generating embeddings for ${chunks.length} chunks...`)
                 setUploadingStatus(`Generating embeddings for ${chunks.length} chunks...`)
                 const chunkTexts = chunks.map((c: any) => c.text)
                 const embeddingResults = await provider.embedTexts(chunkTexts, {
@@ -122,6 +132,7 @@ function DocumentsComponent() {
                   },
                 })
 
+                console.log(`[INDEXING STEP] Embedding generation completed. Starting database write transaction...`)
                 const ocrRequired = extraction.metadata?.ocrRequired ? 1 : 0
                 const metadataJson = JSON.stringify({
                   ocrRequired,
@@ -143,6 +154,7 @@ function DocumentsComponent() {
                     const embeddingVector = embeddingResults[i].embedding
                     const vectorString = `[${embeddingVector.join(',')}]`
                     const chunkId = crypto.randomUUID()
+
                     await tx.query(
                       `INSERT INTO chunks (
                         id, document_id, chunk_index, text, token_count,
@@ -169,13 +181,26 @@ function DocumentsComponent() {
                   }
                 })
 
+                console.log(`[INDEXING SUCCESS] Indexing fully completed and written to PGlite database for: ${file.name}`)
                 worker.terminate()
                 resolve()
-              } catch (writeErr) {
+              } catch (writeErr: any) {
+                console.error(`[INDEXING WRITE ERROR] Failed during embedding load, inference, or DB write:`, writeErr)
+                try {
+                  await db.query(
+                    `UPDATE documents
+                     SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = $3`,
+                    ['failed', writeErr?.message || String(writeErr), docId]
+                  )
+                } catch (dbErr) {
+                  console.error(`[INDEXING FATAL] Failed to update document status to failed:`, dbErr)
+                }
                 worker.terminate()
                 reject(writeErr)
               }
             } else {
+              console.error(`[INDEXING WORKER ERROR] Worker returned failure status for ${file.name}:`, error)
               // Update status to failed
               await db.query(
                 `UPDATE documents
@@ -189,6 +214,7 @@ function DocumentsComponent() {
           }
 
           worker.onerror = async (err) => {
+            console.error(`[INDEXING WORKER CRASH] Worker crashed for ${file.name}:`, err)
             await db.query(
               `UPDATE documents
                SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
