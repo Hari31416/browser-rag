@@ -1,17 +1,70 @@
+import { useState, useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FileText, Search, Activity, Cpu } from 'lucide-react'
+import { isDbInitialized, getDb } from '@/db/client'
+import { loadPreferences } from '@/lib/preferences'
+import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 
 export const Route = createFileRoute('/')({
   component: DashboardComponent,
 })
 
 function DashboardComponent() {
-  const stats = [
-    { title: 'Total Documents', value: '0', description: 'Files uploaded locally', icon: FileText },
-    { title: 'Total Chunks', value: '0', description: 'Extracted text passages', icon: Cpu },
-    { title: 'Embedding Model', value: 'None selected', description: 'Active embedding model', icon: Activity },
+  const [dbReady, setDbReady] = useState(isDbInitialized())
+  const prefs = loadPreferences()
+  const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
+
+  useEffect(() => {
+    if (dbReady) return
+
+    const interval = setInterval(() => {
+      if (isDbInitialized()) {
+        setDbReady(true)
+        clearInterval(interval)
+      }
+    }, 200)
+
+    return () => clearInterval(interval)
+  }, [dbReady])
+
+  const { data: stats = { docs: 0, chunks: 0 } } = useQuery({
+    queryKey: ['dashboard-stats', dbReady],
+    queryFn: async () => {
+      if (!dbReady) return { docs: 0, chunks: 0 }
+      const db = getDb()
+      const docCountRes = await db.query<any>('SELECT count(*) as count FROM documents')
+      const chunkCountRes = await db.query<any>('SELECT count(*) as count FROM chunks')
+      return {
+        docs: parseInt(docCountRes.rows[0].count) || 0,
+        chunks: parseInt(chunkCountRes.rows[0].count) || 0,
+      }
+    },
+    enabled: dbReady,
+    refetchInterval: 3000,
+  })
+
+  const statsItems = [
+    {
+      title: 'Total Documents',
+      value: stats.docs.toString(),
+      description: 'Files uploaded locally',
+      icon: FileText,
+    },
+    {
+      title: 'Total Chunks',
+      value: stats.chunks.toString(),
+      description: 'Extracted text passages',
+      icon: Cpu,
+    },
+    {
+      title: 'Embedding Model',
+      value: modelConfig?.displayName || 'None selected',
+      description: 'Active embedding model',
+      icon: Activity,
+    },
   ]
 
   return (
@@ -27,7 +80,7 @@ function DashboardComponent() {
 
       {/* Stats Cards */}
       <div className="grid gap-6 md:grid-cols-3">
-        {stats.map((stat, index) => {
+        {statsItems.map((stat, index) => {
           const Icon = stat.icon
           return (
             <Card key={index} className="bg-card/50 border-border/50 backdrop-blur-sm relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-border group">
