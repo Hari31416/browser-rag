@@ -4,7 +4,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Loader2, Sparkles, BookOpen, ChevronDown, ChevronUp, AlertCircle, FileText, CheckCircle2, Cpu, Layers } from 'lucide-react'
-import { isDbInitialized } from '@/db/client'
+import { getDb, isDbInitialized } from '@/db/client'
+import { useQuery } from '@tanstack/react-query'
+import { cn } from '@/lib/utils'
 import { getLLMVariant, getLLMOption, LLM_OPTIONS } from '@/llm/llm-models'
 import { EMBEDDING_MODELS } from '@/rag/embedding-models'
 import { generateRAGAnswer } from '@/rag/orchestrator'
@@ -31,6 +33,46 @@ function SearchComponent() {
   const [showThinking, setShowThinking] = useState(true)
   const [selectedCitationIndex, setSelectedCitationIndex] = useState<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Fetch query history
+  const { data: queryHistory = [], refetch: refetchHistory } = useQuery({
+    queryKey: ['query-history', dbReady],
+    queryFn: async () => {
+      if (!dbReady) return []
+      const db = getDb()
+      const res = await db.query<any>(
+        'SELECT * FROM query_history ORDER BY created_at DESC LIMIT 10'
+      )
+      return res.rows
+    },
+    enabled: dbReady,
+  })
+
+  const handleLoadHistoryItem = (item: any) => {
+    setActiveQuery(item.query)
+    setQueryText(item.query)
+    setAnswerContent(item.answer || '')
+    setThinkingContent('')
+    setErrorMessage(null)
+    setIsGenerating(false)
+    setSelectedCitationIndex(null)
+    try {
+      setCitations(JSON.parse(item.retrieved_chunks_json || '[]'))
+    } catch (e) {
+      setCitations([])
+    }
+  }
+
+  const handleClearHistory = async () => {
+    if (!dbReady) return
+    try {
+      const db = getDb()
+      await db.query('DELETE FROM query_history')
+      refetchHistory()
+    } catch (err) {
+      console.error('Failed to clear query history:', err)
+    }
+  }
 
   // Consume from system context
   const {
@@ -119,14 +161,19 @@ function SearchComponent() {
       })
 
       setStatusMessage('Streaming answer...')
+      let finalAnswer = ''
+      let finalCitations: any[] = []
+
       for await (const chunk of stream) {
         if (abortController.signal.aborted) break
 
         if (chunk.type === 'citations' && chunk.citations) {
+          finalCitations = chunk.citations
           setCitations(chunk.citations)
         } else if (chunk.type === 'thinking_delta' && chunk.text) {
           setThinkingContent((prev) => prev + chunk.text)
         } else if (chunk.type === 'text_delta' && chunk.text) {
+          finalAnswer += chunk.text
           setAnswerContent((prev) => prev + chunk.text)
         } else if (chunk.type === 'error' && chunk.error) {
           throw new Error(chunk.error)
@@ -134,6 +181,27 @@ function SearchComponent() {
       }
 
       setStatusMessage(null)
+
+      if (!abortController.signal.aborted && isDbInitialized()) {
+        try {
+          const db = getDb()
+          await db.query(
+            `INSERT INTO query_history (id, query, answer, retrieved_chunks_json, embedding_model_id, llm_model_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              crypto.randomUUID(),
+              queryText,
+              finalAnswer,
+              JSON.stringify(finalCitations),
+              prefs.embeddingModelId,
+              prefs.llmVariantId
+            ]
+          )
+          refetchHistory()
+        } catch (dbErr) {
+          console.error('Failed to save to history:', dbErr)
+        }
+      }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         setErrorMessage(err.message || 'An error occurred during query generation.')
@@ -326,8 +394,59 @@ function SearchComponent() {
           </form>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
-              {/* Left Panel: Streamed Answer */}
-              <div className="lg:col-span-7 flex flex-col min-h-0 gap-4">
+              {/* Left Column: Query History */}
+              <div className="lg:col-span-3 flex flex-col min-h-0">
+                <Card className="flex-1 bg-card/15 border-border/40 backdrop-blur-md flex flex-col min-h-0 shadow-xl rounded-xl overflow-hidden">
+                  <CardHeader className="py-3 border-b border-border/30 bg-card/5 flex items-center justify-between space-y-0 shrink-0">
+                    <CardTitle className="text-xs font-semibold flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-primary" />
+                      Query History
+                    </CardTitle>
+                    {queryHistory.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearHistory}
+                        className="text-[10px] text-muted-foreground hover:text-destructive h-6 px-2 hover:bg-transparent"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+                    {queryHistory.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-4 py-8 select-none">
+                        <FileText className="h-8 w-8 stroke-1 text-muted-foreground/40 mb-2" />
+                        <p className="text-xs font-medium text-foreground">No queries yet</p>
+                        <p className="text-[10px]">Your query history will appear here.</p>
+                      </div>
+                    ) : (
+                      queryHistory.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleLoadHistoryItem(item)}
+                          className={cn(
+                            "w-full text-left p-2.5 rounded-lg border text-xs transition-all duration-200 hover:bg-card/40 flex flex-col gap-1 group",
+                            activeQuery === item.query
+                              ? "border-primary/50 bg-primary/5 text-foreground"
+                              : "border-border/20 bg-card/10 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <span className="font-medium truncate w-full group-hover:text-primary transition-colors">
+                            {item.query}
+                          </span>
+                          <span className="text-[9px] opacity-70">
+                            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Middle Panel: Streamed Answer */}
+              <div className="lg:col-span-5 flex flex-col min-h-0 gap-4">
                 <Card className="flex-1 bg-card/15 border-border/40 backdrop-blur-md flex flex-col min-h-0 shadow-xl rounded-xl overflow-hidden">
                   <CardHeader className="py-4 border-b border-border/30 bg-card/5 flex-row justify-between items-center space-y-0">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -409,7 +528,7 @@ function SearchComponent() {
               </div>
 
               {/* Right Panel: Retrieval Preview & Sources */}
-              <div className="lg:col-span-5 flex flex-col min-h-0">
+              <div className="lg:col-span-4 flex flex-col min-h-0">
                 <Card className="flex-1 bg-card/15 border-border/40 backdrop-blur-md flex flex-col min-h-0 shadow-xl rounded-xl overflow-hidden">
                   <CardHeader className="py-4 border-b border-border/30 bg-card/5 flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
