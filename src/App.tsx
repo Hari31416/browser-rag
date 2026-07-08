@@ -6,6 +6,7 @@ const queryClient = new QueryClient()
 
 const router = createRouter({
   routeTree,
+  basepath: '/browser-rag',
   context: {
     queryClient,
   },

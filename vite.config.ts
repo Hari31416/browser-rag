@@ -6,7 +6,7 @@ import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/browser-rag/' : '/',
+  base: '/browser-rag/',
   plugins: [TanStackRouterVite(), react(), tailwindcss()],
   resolve: {
     alias: {
