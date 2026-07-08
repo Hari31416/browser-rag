@@ -1,4 +1,5 @@
 - Each tool/library that you use to create this app must be able to be run on browser client side entirely.
+- Keep individual files shorter. If a module is becoming larger than 1k lines, refactor it using multiple files.
 
 ## Guidline for Commit Messages
 

@@ -12,8 +12,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@electric-sql/pglite-pgvector": "^0.0.5",
     "@fontsource-variable/inter": "^5.2.8",
+    "@huggingface/transformers": "^4.2.0",
+    "@llamaindex/liteparse-wasm": "^2.5.0",
     "@tailwindcss/vite": "^4",
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-router": "^1.170.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.23.0",
@@ -27,6 +33,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10",
+    "@tanstack/router-plugin": "^1.168.19",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
