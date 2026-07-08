@@ -129,4 +129,9 @@ export async function runMigrations(db: PGlite): Promise<void> {
       })
     }
   }
+
+  // Seed default collection
+  await db.query(
+    "INSERT INTO collections (id, name) VALUES ('default', 'Default Collection') ON CONFLICT DO NOTHING"
+  )
 }

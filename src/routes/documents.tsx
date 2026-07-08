@@ -1,31 +1,239 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { UploadPanel } from '@/components/documents/upload-panel'
+import { extractTextFromFile } from '@/rag/extractors'
+import { isDbInitialized, getDb } from '@/db/client'
+import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/documents')({
   component: DocumentsComponent,
 })
 
+function formatBytes(bytes: number, decimals = 2) {
+  if (!bytes) return '0 Bytes'
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+}
+
 function DocumentsComponent() {
+  const queryClient = useQueryClient()
+  const [dbReady, setDbReady] = useState(isDbInitialized())
+  const [uploadingStatus, setUploadingStatus] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (dbReady) return
+
+    const interval = setInterval(() => {
+      if (isDbInitialized()) {
+        setDbReady(true)
+        clearInterval(interval)
+      }
+    }, 200)
+
+    return () => clearInterval(interval)
+  }, [dbReady])
+
+  // Query documents list
+  const { data: documents = [], isLoading } = useQuery({
+    queryKey: ['documents', dbReady],
+    queryFn: async () => {
+      if (!dbReady) return []
+      const db = getDb()
+      const res = await db.query<any>('SELECT * FROM documents ORDER BY created_at DESC')
+      return res.rows
+    },
+    enabled: dbReady,
+  })
+
+  // Mutation for file upload and text extraction
+  const uploadMutation = useMutation({
+    mutationFn: async (files: File[]) => {
+      if (!dbReady) throw new Error('Database not ready')
+      const db = getDb()
+
+      for (const file of files) {
+        setUploadingStatus(`Extracting text from ${file.name}...`)
+        const docId = crypto.randomUUID()
+        const arrayBuffer = await file.arrayBuffer()
+        const fileBytes = new Uint8Array(arrayBuffer)
+
+        try {
+          // Insert initial document row with 'pending' status
+          await db.query(
+            `INSERT INTO documents (id, collection_id, source_type, name, mime_type, size_bytes, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [docId, 'default', file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
+          )
+
+          // Perform text extraction
+          const extraction = await extractTextFromFile(fileBytes, file.name, file.type)
+
+          // Update document row with completed status and metadata
+          const ocrRequired = extraction.metadata?.ocrRequired ? 1 : 0
+          const metadataJson = JSON.stringify({
+            extractedText: extraction.text,
+            ocrRequired,
+            pageCount: extraction.metadata?.pageCount || 1,
+            extension: extraction.metadata?.extension || file.name.split('.').pop(),
+          })
+
+          await db.query(
+            `UPDATE documents
+             SET status = $1, metadata_json = $2, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $3`,
+            ['completed', metadataJson, docId]
+          )
+        } catch (error: any) {
+          // Update status to failed
+          await db.query(
+            `UPDATE documents
+             SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $3`,
+            ['failed', error?.message || 'Text extraction failed', docId]
+          )
+          throw error
+        }
+      }
+    },
+    onSuccess: () => {
+      setUploadingStatus(null)
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    },
+    onError: (error) => {
+      setUploadingStatus(`Upload failed: ${error.message}`)
+      setTimeout(() => setUploadingStatus(null), 5000)
+    },
+  })
+
+  // Mutation for deleting a document
+  const deleteMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      if (!dbReady) throw new Error('Database not ready')
+      const db = getDb()
+      await db.query('DELETE FROM documents WHERE id = $1', [docId])
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    },
+  })
+
+  const handleFilesSelected = (files: File[]) => {
+    uploadMutation.mutate(files)
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="space-y-1">
+    <div className="space-y-6 flex-1 flex flex-col min-h-0 animate-fade-in">
+      <div className="space-y-1 shrink-0">
         <h2 className="text-2xl font-bold tracking-tight">Document Management</h2>
         <p className="text-muted-foreground text-sm">
           Upload and index documents into your local PGlite vector database.
         </p>
       </div>
 
-      <Card className="bg-card/50 border-border/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>File Upload</CardTitle>
-          <CardDescription>Drag and drop files here to extract and index them.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer bg-accent/5">
-            <span className="text-muted-foreground text-sm">Upload components will be loaded in Phase 3.</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-3 flex-1 min-h-0">
+        {/* Upload Container */}
+        <div className="md:col-span-1 space-y-4 shrink-0">
+          <Card className="bg-card/50 border-border/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle>File Upload</CardTitle>
+              <CardDescription>Select documents to parse and add to the index.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <UploadPanel
+                onFilesSelected={handleFilesSelected}
+                disabled={uploadMutation.isPending || !dbReady}
+              />
+              {uploadingStatus && (
+                <div className="flex items-center gap-2 p-3 bg-accent/40 rounded-lg text-xs text-foreground font-medium animate-pulse border border-border/40">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                  <span>{uploadingStatus}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Documents List */}
+        <div className="md:col-span-2 flex flex-col min-h-0">
+          <Card className="flex-1 bg-card/50 border-border/50 backdrop-blur-sm flex flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
+              <CardTitle>Indexed Documents</CardTitle>
+              <CardDescription>View and manage your locally stored files.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0">
+              {!dbReady || isLoading ? (
+                <div className="h-48 flex items-center justify-center text-muted-foreground gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span>Loading local documents...</span>
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="h-48 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
+                  <FileText className="h-10 w-10 text-muted-foreground/40" />
+                  <span>No documents indexed yet. Use the upload panel to add some.</span>
+                </div>
+              ) : (
+                <div className="border border-border/50 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-accent/40 border-b border-border/50">
+                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Name</th>
+                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Size</th>
+                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {documents.map((doc: any) => (
+                        <tr key={doc.id} className="hover:bg-accent/10 transition-colors">
+                          <td className="p-3 font-medium max-w-[200px] truncate">{doc.name}</td>
+                          <td className="p-3 text-muted-foreground font-mono text-xs">
+                            {formatBytes(doc.size_bytes)}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                doc.status === 'completed'
+                                  ? 'bg-emerald-500/10 text-emerald-500'
+                                  : doc.status === 'failed'
+                                    ? 'bg-destructive/10 text-destructive'
+                                    : 'bg-amber-500/10 text-amber-500 animate-pulse'
+                              }`}
+                            >
+                              {doc.status === 'completed' && <CheckCircle2 className="h-3 w-3" />}
+                              {doc.status === 'failed' && <AlertCircle className="h-3 w-3" />}
+                              {doc.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin" />}
+                              {doc.status === 'pending' && <Loader2 className="h-3 w-3 animate-spin" />}
+                              <span className="capitalize">{doc.status}</span>
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={deleteMutation.isPending}
+                              onClick={() => deleteMutation.mutate(doc.id)}
+                              className="h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
+export default DocumentsComponent
