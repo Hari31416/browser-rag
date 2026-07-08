@@ -3,12 +3,11 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Search, Activity, Cpu, ChevronDown, Clock } from 'lucide-react'
+import { FileText, Search, Cpu, ChevronDown, Clock, FolderOpen } from 'lucide-react'
 import { isDbInitialized, getDb } from '@/db/client'
-import { loadPreferences } from '@/lib/preferences'
-import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 import { marked } from 'marked'
 import { cn } from '@/lib/utils'
+import { useSystemInit } from '@/context/system-init-context'
 
 export const Route = createFileRoute('/')({
   component: DashboardComponent,
@@ -16,8 +15,7 @@ export const Route = createFileRoute('/')({
 
 function DashboardComponent() {
   const [dbReady, setDbReady] = useState(isDbInitialized())
-  const prefs = loadPreferences()
-  const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
+  const { activeProject } = useSystemInit()
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data: history = [] } = useQuery({
@@ -77,10 +75,10 @@ function DashboardComponent() {
       icon: Cpu,
     },
     {
-      title: 'Embedding Model',
-      value: modelConfig?.displayName || 'None selected',
-      description: 'Active embedding model',
-      icon: Activity,
+      title: 'Active Project',
+      value: activeProject?.name ?? 'None',
+      description: activeProject ? `Embedding: ${activeProject.embeddingModelId}` : 'Go to Projects to create one',
+      icon: FolderOpen,
     },
   ]
 

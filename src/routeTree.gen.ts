@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsRoute = DocumentsRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/documents': typeof DocumentsRoute
+  '/projects': typeof ProjectsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/documents': typeof DocumentsRoute
+  '/projects': typeof ProjectsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
 }
@@ -60,21 +68,32 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/documents': typeof DocumentsRoute
+  '/projects': typeof ProjectsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/diagnostics' | '/documents' | '/search' | '/settings'
+  fullPaths:
+    '/' | '/diagnostics' | '/documents' | '/projects' | '/search' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/diagnostics' | '/documents' | '/search' | '/settings'
-  id: '__root__' | '/' | '/diagnostics' | '/documents' | '/search' | '/settings'
+  to:
+    '/' | '/diagnostics' | '/documents' | '/projects' | '/search' | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/diagnostics'
+    | '/documents'
+    | '/projects'
+    | '/search'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiagnosticsRoute: typeof DiagnosticsRoute
   DocumentsRoute: typeof DocumentsRoute
+  ProjectsRoute: typeof ProjectsRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -93,6 +112,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents': {
@@ -123,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiagnosticsRoute: DiagnosticsRoute,
   DocumentsRoute: DocumentsRoute,
+  ProjectsRoute: ProjectsRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
 }

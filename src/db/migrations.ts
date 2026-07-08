@@ -100,6 +100,37 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_chunks_embedding_cosine ON chunks USING hnsw (embedding vector_cosine_ops);
     `,
   },
+  {
+    version: 2,
+    sql: `
+      -- Clean slate: remove all existing user data so project scoping starts fresh
+      DELETE FROM query_history;
+      DELETE FROM chunks;
+      DELETE FROM documents;
+      DELETE FROM collections;
+
+      -- Create projects table — each project has a locked embedding model
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        embedding_model_id TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Add project_id column to documents
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id) ON DELETE CASCADE;
+
+      -- Add project_id column to query_history
+      ALTER TABLE query_history ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id) ON DELETE CASCADE;
+
+      -- Index for project-scoped document lookups
+      CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(project_id);
+
+      -- Index for project-scoped query history lookups
+      CREATE INDEX IF NOT EXISTS idx_query_history_project ON query_history(project_id);
+    `,
+  },
 ]
 
 export async function runMigrations(db: PGlite): Promise<void> {
@@ -129,9 +160,4 @@ export async function runMigrations(db: PGlite): Promise<void> {
       })
     }
   }
-
-  // Seed default collection
-  await db.query(
-    "INSERT INTO collections (id, name) VALUES ('default', 'Default Collection') ON CONFLICT DO NOTHING"
-  )
 }

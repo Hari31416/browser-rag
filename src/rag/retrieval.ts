@@ -1,5 +1,4 @@
 import { getDb, isDbInitialized } from '@/db/client'
-import { loadPreferences } from '@/lib/preferences'
 import { getEmbeddingProvider } from '@/rag/embedding-runtime'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 
@@ -22,7 +21,8 @@ export interface RetrievalResult {
 }
 
 export interface RetrievalOptions {
-  collectionId?: string
+  embeddingModelId: string
+  projectId?: string
   documentId?: string
   topK?: number
   vectorLimit?: number
@@ -33,25 +33,24 @@ export interface RetrievalOptions {
 
 export async function retrieveChunks(
   query: string,
-  options?: RetrievalOptions
+  options: RetrievalOptions
 ): Promise<RetrievalResult[]> {
   if (!isDbInitialized()) {
     throw new Error('Database not initialized')
   }
 
   const db = getDb()
-  const prefs = loadPreferences()
-  
-  const hybridEnabled = options?.hybridEnabled ?? prefs.hybridRetrievalEnabled
-  const topK = options?.topK ?? prefs.retrievalTopK
+
+  const hybridEnabled = options?.hybridEnabled ?? true
+  const topK = options?.topK ?? 5
   const rrfConstant = options?.rrfConstant ?? 60
 
-  const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
+  const modelConfig = getEmbeddingModelConfig(options.embeddingModelId)
   if (!modelConfig) {
-    throw new Error(`Embedding model config not found for: ${prefs.embeddingModelId}`)
+    throw new Error(`Embedding model config not found for: ${options.embeddingModelId}`)
   }
-  
-  const provider = getEmbeddingProvider(prefs.embeddingProviderId)
+
+  const provider = getEmbeddingProvider('local')
 
   // 1. Generate query embedding
   await provider.load(modelConfig.modelId)
@@ -80,9 +79,9 @@ export async function retrieveChunks(
     vectorValues.push(options.documentId)
     vectorQueryParts.push(`AND c.document_id = $${vectorValues.length}`)
   }
-  if (options?.collectionId) {
-    vectorValues.push(options.collectionId)
-    vectorQueryParts.push(`AND d.collection_id = $${vectorValues.length}`)
+  if (options?.projectId) {
+    vectorValues.push(options.projectId)
+    vectorQueryParts.push(`AND d.project_id = $${vectorValues.length}`)
   }
 
   vectorQueryParts.push(`ORDER BY c.embedding <=> $1 LIMIT $${vectorValues.length + 1}`)
@@ -139,9 +138,9 @@ export async function retrieveChunks(
     keywordValues.push(options.documentId)
     keywordQueryParts.push(`AND c.document_id = $${keywordValues.length}`)
   }
-  if (options?.collectionId) {
-    keywordValues.push(options.collectionId)
-    keywordQueryParts.push(`AND d.collection_id = $${keywordValues.length}`)
+  if (options?.projectId) {
+    keywordValues.push(options.projectId)
+    keywordQueryParts.push(`AND d.project_id = $${keywordValues.length}`)
   }
 
   keywordQueryParts.push(`ORDER BY score DESC LIMIT $${keywordValues.length + 1}`)

@@ -1,6 +1,5 @@
 export interface Preferences {
-  embeddingProviderId: string
-  embeddingModelId: string
+  activeProjectId: string | null
   llmModelId: string
   llmVariantId: string
   chunkSize: number
@@ -10,8 +9,7 @@ export interface Preferences {
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
-  embeddingProviderId: 'local',
-  embeddingModelId: 'supabase-gte-small',
+  activeProjectId: null,
   llmModelId: 'qwen-3.5-0.8b',
   llmVariantId: 'transformers-js',
   chunkSize: 500,

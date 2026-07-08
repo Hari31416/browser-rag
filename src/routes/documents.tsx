@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -7,7 +7,7 @@ import { UploadPanel } from '@/components/documents/upload-panel'
 import { isDbInitialized, getDb } from '@/db/client'
 import { getEmbeddingProvider } from '@/rag/embedding-runtime'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
-import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2, Layers } from 'lucide-react'
+import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2, Layers, FolderOpen } from 'lucide-react'
 import { useSystemInit } from '@/context/system-init-context'
 
 export const Route = createFileRoute('/documents')({
@@ -31,13 +31,16 @@ function DocumentsComponent() {
   // Consume from system context
   const {
     preferences: prefs,
+    activeProject,
     embeddingReady,
     embeddingLoading,
     embeddingProgress,
-    loadEmbeddingModel
+    loadEmbeddingModel,
   } = useSystemInit()
 
-  const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
+  const modelConfig = activeProject
+    ? getEmbeddingModelConfig(activeProject.embeddingModelId)
+    : null
 
   useEffect(() => {
     if (dbReady) return
@@ -52,28 +55,32 @@ function DocumentsComponent() {
     return () => clearInterval(interval)
   }, [dbReady])
 
-  // Query documents list
+  // Query documents list scoped to active project
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ['documents', dbReady],
+    queryKey: ['documents', dbReady, activeProject?.id],
     queryFn: async () => {
-      if (!dbReady) return []
+      if (!dbReady || !activeProject) return []
       const db = getDb()
-      const res = await db.query<any>('SELECT * FROM documents ORDER BY created_at DESC')
+      const res = await db.query<any>(
+        'SELECT * FROM documents WHERE project_id = $1 ORDER BY created_at DESC',
+        [activeProject.id]
+      )
       return res.rows
     },
-    enabled: dbReady,
+    enabled: dbReady && !!activeProject,
   })
 
   // Mutation for file upload and text extraction
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
       if (!dbReady) throw new Error('Database not ready')
+      if (!activeProject) throw new Error('No active project selected')
       const db = getDb()
-      const modelConfig = getEmbeddingModelConfig(prefs.embeddingModelId)
-      if (!modelConfig) {
-        throw new Error(`Embedding model configuration not found for: ${prefs.embeddingModelId}`)
+      const currentModelConfig = getEmbeddingModelConfig(activeProject.embeddingModelId)
+      if (!currentModelConfig) {
+        throw new Error(`Embedding model configuration not found for: ${activeProject.embeddingModelId}`)
       }
-      const provider = getEmbeddingProvider(prefs.embeddingProviderId)
+      const provider = getEmbeddingProvider('local')
 
       console.log('[INDEXING START] Processing files:', files.map(f => f.name))
 
@@ -84,11 +91,11 @@ function DocumentsComponent() {
         const fileBytes = new Uint8Array(arrayBuffer)
 
         console.log(`[INDEXING STEP] Inserting pending record for document: ${file.name} (ID: ${docId})`)
-        // Insert initial document row with 'pending' status
+        // Insert initial document row with project_id
         await db.query(
-          `INSERT INTO documents (id, collection_id, source_type, name, mime_type, size_bytes, status)
+          `INSERT INTO documents (id, project_id, source_type, name, mime_type, size_bytes, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [docId, 'default', file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
+          [docId, activeProject.id, file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
         )
 
         // Force react-query to refresh listing so the UI immediately shows 'pending'
@@ -119,12 +126,12 @@ function DocumentsComponent() {
 
             if (status === 'success') {
               try {
-                console.log(`[INDEXING STEP] Text extraction successful. Chunks count: ${chunks.length}. Loading embedding provider: ${provider.id}`)
-                setUploadingStatus(`Loading embedding model ${modelConfig.displayName}...`)
-                await provider.load(modelConfig.modelId, (prog: any) => {
+                console.log(`[INDEXING STEP] Text extraction successful. Chunks count: ${chunks.length}. Loading embedding provider.`)
+                setUploadingStatus(`Loading embedding model ${currentModelConfig.displayName}...`)
+                await provider.load(currentModelConfig.modelId, (prog: any) => {
                   if (prog.type === 'load') {
                     setUploadingStatus(
-                      `Downloading ${modelConfig.displayName}: ${Math.round(prog.progress)}%`
+                      `Downloading ${currentModelConfig.displayName}: ${Math.round(prog.progress)}%`
                     )
                   }
                 })
@@ -176,9 +183,9 @@ function DocumentsComponent() {
                         chunk.chunkIndex,
                         chunk.text,
                         chunk.tokenCount,
-                        modelConfig.id,
+                        currentModelConfig.id,
                         provider.id,
-                        modelConfig.dimensions,
+                        currentModelConfig.dimensions,
                         vectorString,
                         JSON.stringify({
                           startOffset: chunk.startOffset,
@@ -240,6 +247,7 @@ function DocumentsComponent() {
     onSuccess: () => {
       setUploadingStatus(null)
       queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
     },
     onError: (error) => {
       setUploadingStatus(`Indexing failed: ${error.message}`)
@@ -256,6 +264,7 @@ function DocumentsComponent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
     },
   })
 
@@ -263,50 +272,80 @@ function DocumentsComponent() {
     uploadMutation.mutate(files)
   }
 
+  // Guard — no active project
+  if (!activeProject) {
+    return (
+      <div className='flex flex-col items-center justify-center h-full min-h-[400px] gap-4 text-center animate-fade-in'>
+        <div className='p-4 bg-secondary/50 rounded-2xl text-muted-foreground'>
+          <FolderOpen className='h-8 w-8' />
+        </div>
+        <div className='space-y-1'>
+          <p className='font-semibold text-sm text-foreground'>No active project</p>
+          <p className='text-xs text-muted-foreground max-w-xs'>
+            Select or create a project first to manage documents.
+          </p>
+        </div>
+        <Link to='/projects'>
+          <Button variant='outline' className='flex items-center gap-2 text-xs'>
+            <FolderOpen className='h-3.5 w-3.5' />
+            Go to Projects
+          </Button>
+        </Link>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6 flex-1 flex flex-col min-h-0 animate-fade-in">
-      <div className="shrink-0">
-        <p className="text-muted-foreground text-sm">
+    <div className='space-y-6 flex-1 flex flex-col min-h-0 animate-fade-in'>
+      <div className='shrink-0 flex items-center justify-between gap-4'>
+        <p className='text-muted-foreground text-sm'>
           Upload and index documents into your local PGlite vector database.
         </p>
+        <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/40 border border-border/35 text-xs text-muted-foreground shrink-0'>
+          <FolderOpen className='h-3.5 w-3.5 text-primary/70' />
+          <span className='font-semibold text-foreground'>{activeProject.name}</span>
+          <span className='text-border/60'>·</span>
+          <Layers className='h-3 w-3' />
+          <span>{modelConfig?.displayName ?? activeProject.embeddingModelId}</span>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3 flex-1 min-h-0">
+      <div className='grid gap-6 md:grid-cols-3 flex-1 min-h-0'>
         {/* Upload Container */}
-        <div className="md:col-span-1 space-y-4 shrink-0">
-          <Card className="bg-card/50 border-border/50 backdrop-blur-sm">
+        <div className='md:col-span-1 space-y-4 shrink-0'>
+          <Card className='bg-card/50 border-border/50 backdrop-blur-sm'>
             <CardHeader>
               <CardTitle>File Upload</CardTitle>
               <CardDescription>Select documents to parse and add to the index.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className='space-y-4'>
               {!embeddingReady ? (
-                <div className="space-y-4 p-4 border border-border/40 rounded-xl bg-accent/5 flex flex-col items-center text-center gap-3">
-                  <div className="p-3 bg-primary/10 rounded-full text-primary animate-pulse">
-                    <Layers className="h-6 w-6" />
+                <div className='space-y-4 p-4 border border-border/40 rounded-xl bg-accent/5 flex flex-col items-center text-center gap-3'>
+                  <div className='p-3 bg-primary/10 rounded-full text-primary animate-pulse'>
+                    <Layers className='h-6 w-6' />
                   </div>
-                  <div className="space-y-1">
-                    <h4 className="font-semibold text-sm">Embedding Model Required</h4>
-                    <p className="text-[11px] text-muted-foreground max-w-[200px] mx-auto">
+                  <div className='space-y-1'>
+                    <h4 className='font-semibold text-sm'>Embedding Model Required</h4>
+                    <p className='text-[11px] text-muted-foreground max-w-[200px] mx-auto'>
                       Load the embedding model to extract document features and index them.
                     </p>
-                    <p className="text-[10px] text-primary/95 font-semibold mt-1">
-                      Active: {modelConfig?.displayName || 'None'}
+                    <p className='text-[10px] text-primary/95 font-semibold mt-1'>
+                      Model: {modelConfig?.displayName || 'None'}
                     </p>
                   </div>
-                  
+
                   {embeddingLoading ? (
-                    <div className="w-full space-y-1.5 pt-2">
-                      <div className="flex justify-between text-[10px] font-semibold text-muted-foreground font-mono">
-                        <span className="flex items-center gap-1">
-                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <div className='w-full space-y-1.5 pt-2'>
+                      <div className='flex justify-between text-[10px] font-semibold text-muted-foreground font-mono'>
+                        <span className='flex items-center gap-1'>
+                          <Loader2 className='h-3 w-3 animate-spin text-primary' />
                           Downloading...
                         </span>
                         <span>{embeddingProgress}%</span>
                       </div>
-                      <div className="w-full bg-secondary/30 h-1 rounded-full overflow-hidden">
+                      <div className='w-full bg-secondary/30 h-1 rounded-full overflow-hidden'>
                         <div
-                          className="bg-primary h-full transition-all duration-300"
+                          className='bg-primary h-full transition-all duration-300'
                           style={{ width: `${embeddingProgress}%` }}
                         />
                       </div>
@@ -314,7 +353,7 @@ function DocumentsComponent() {
                   ) : (
                     <Button
                       onClick={loadEmbeddingModel}
-                      className="w-full mt-2 font-semibold shadow-md"
+                      className='w-full mt-2 font-semibold shadow-md'
                     >
                       Load Embedding Model
                     </Button>
@@ -327,8 +366,8 @@ function DocumentsComponent() {
                     disabled={uploadMutation.isPending || !dbReady}
                   />
                   {uploadingStatus && (
-                    <div className="flex items-center gap-2 p-3 bg-accent/40 rounded-lg text-xs text-foreground font-medium animate-pulse border border-border/40">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                    <div className='flex items-center gap-2 p-3 bg-accent/40 rounded-lg text-xs text-foreground font-medium animate-pulse border border-border/40'>
+                      <Loader2 className='h-4 w-4 animate-spin text-primary shrink-0' />
                       <span>{uploadingStatus}</span>
                     </div>
                   )}
@@ -339,42 +378,42 @@ function DocumentsComponent() {
         </div>
 
         {/* Documents List */}
-        <div className="md:col-span-2 flex flex-col min-h-0">
-          <Card className="flex-1 bg-card/50 border-border/50 backdrop-blur-sm flex flex-col overflow-hidden">
-            <CardHeader className="shrink-0">
+        <div className='md:col-span-2 flex flex-col min-h-0'>
+          <Card className='flex-1 bg-card/50 border-border/50 backdrop-blur-sm flex flex-col overflow-hidden'>
+            <CardHeader className='shrink-0'>
               <CardTitle>Indexed Documents</CardTitle>
               <CardDescription>View and manage your locally stored files.</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0">
+            <CardContent className='flex-1 overflow-y-auto min-h-0 pt-0'>
               {!dbReady || isLoading ? (
-                <div className="h-48 flex items-center justify-center text-muted-foreground gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className='h-48 flex items-center justify-center text-muted-foreground gap-2'>
+                  <Loader2 className='h-5 w-5 animate-spin text-primary' />
                   <span>Loading local documents...</span>
                 </div>
               ) : documents.length === 0 ? (
-                <div className="h-48 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
-                  <FileText className="h-10 w-10 text-muted-foreground/40" />
+                <div className='h-48 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2'>
+                  <FileText className='h-10 w-10 text-muted-foreground/40' />
                   <span>No documents indexed yet. Use the upload panel to add some.</span>
                 </div>
               ) : (
-                <div className="border border-border/50 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-sm border-collapse">
+                <div className='border border-border/50 rounded-lg overflow-hidden'>
+                  <table className='w-full text-left text-sm border-collapse'>
                     <thead>
-                      <tr className="bg-accent/40 border-b border-border/50">
-                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Name</th>
-                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Size</th>
-                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
-                        <th className="p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground text-right">Action</th>
+                      <tr className='bg-accent/40 border-b border-border/50'>
+                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Name</th>
+                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Size</th>
+                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground'>Status</th>
+                        <th className='p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground text-right'>Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/40">
+                    <tbody className='divide-y divide-border/40'>
                       {documents.map((doc: any) => (
-                        <tr key={doc.id} className="hover:bg-accent/10 transition-colors">
-                          <td className="p-3 font-medium max-w-[200px] truncate">{doc.name}</td>
-                          <td className="p-3 text-muted-foreground font-mono text-xs">
+                        <tr key={doc.id} className='hover:bg-accent/10 transition-colors'>
+                          <td className='p-3 font-medium max-w-[200px] truncate'>{doc.name}</td>
+                          <td className='p-3 text-muted-foreground font-mono text-xs'>
                             {formatBytes(doc.size_bytes)}
                           </td>
-                          <td className="p-3">
+                          <td className='p-3'>
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                                 doc.status === 'completed'
@@ -384,22 +423,22 @@ function DocumentsComponent() {
                                     : 'bg-amber-500/10 text-amber-500 animate-pulse'
                               }`}
                             >
-                              {doc.status === 'completed' && <CheckCircle2 className="h-3 w-3" />}
-                              {doc.status === 'failed' && <AlertCircle className="h-3 w-3" />}
-                              {doc.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin" />}
-                              {doc.status === 'pending' && <Loader2 className="h-3 w-3 animate-spin" />}
-                              <span className="capitalize">{doc.status}</span>
+                              {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
+                              {doc.status === 'failed' && <AlertCircle className='h-3 w-3' />}
+                              {doc.status === 'processing' && <Loader2 className='h-3 w-3 animate-spin' />}
+                              {doc.status === 'pending' && <Loader2 className='h-3 w-3 animate-spin' />}
+                              <span className='capitalize'>{doc.status}</span>
                             </span>
                           </td>
-                          <td className="p-3 text-right">
+                          <td className='p-3 text-right'>
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant='ghost'
+                              size='icon'
                               disabled={deleteMutation.isPending}
                               onClick={() => deleteMutation.mutate(doc.id)}
-                              className="h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg"
+                              className='h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className='h-4 w-4' />
                             </Button>
                           </td>
                         </tr>

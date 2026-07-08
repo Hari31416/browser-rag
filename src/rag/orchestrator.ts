@@ -13,8 +13,9 @@ export interface RAGAnswerChunk {
 export async function* generateRAGAnswer(
   query: string,
   options: {
+    projectId: string
+    embeddingModelId: string
     documentId?: string
-    collectionId?: string
     abortSignal?: AbortSignal
     llmHandles: any
   }
@@ -22,10 +23,11 @@ export async function* generateRAGAnswer(
   try {
     const prefs = loadPreferences()
 
-    // 1. Retrieve relevant chunks
+    // 1. Retrieve relevant chunks scoped to the active project
     const citations = await retrieveChunks(query, {
+      embeddingModelId: options.embeddingModelId,
+      projectId: options.projectId,
       documentId: options.documentId,
-      collectionId: options.collectionId,
       topK: prefs.retrievalTopK,
       hybridEnabled: prefs.hybridRetrievalEnabled,
     })

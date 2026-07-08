@@ -78,6 +78,7 @@ function SearchComponent() {
   const {
     preferences: prefs,
     updatePreferences,
+    activeProject,
     gemma4,
     webllm,
     lfm2,
@@ -156,6 +157,8 @@ function SearchComponent() {
 
       // Run RAG Pipeline
       const stream = generateRAGAnswer(queryText, {
+        projectId: activeProject?.id ?? '',
+        embeddingModelId: activeProject?.embeddingModelId ?? '',
         abortSignal: abortController.signal,
         llmHandles: getLLMHandles(),
       })
@@ -186,15 +189,16 @@ function SearchComponent() {
         try {
           const db = getDb()
           await db.query(
-            `INSERT INTO query_history (id, query, answer, retrieved_chunks_json, embedding_model_id, llm_model_id)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+            `INSERT INTO query_history (id, query, answer, retrieved_chunks_json, embedding_model_id, llm_model_id, project_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
               crypto.randomUUID(),
               queryText,
               finalAnswer,
               JSON.stringify(finalCitations),
-              prefs.embeddingModelId,
-              prefs.llmVariantId
+              activeProject?.embeddingModelId ?? '',
+              prefs.llmVariantId,
+              activeProject?.id ?? null,
             ]
           )
           refetchHistory()
@@ -273,24 +277,24 @@ function SearchComponent() {
               )}
 
               {/* Models selection configurations */}
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-primary/70" />
-                    Embedding Model
+              <div className='space-y-4'>
+                <div className='space-y-1.5'>
+                  <label className='text-xs font-semibold text-muted-foreground flex items-center gap-1.5'>
+                    <Layers className='h-3.5 w-3.5 text-primary/70' />
+                    Embedding Model (Project-locked)
                   </label>
-                  <select
-                    disabled={isInitializing}
-                    value={prefs.embeddingModelId}
-                    onChange={(e) => updatePreferences({ embeddingModelId: e.target.value })}
-                    className="w-full bg-background/50 border border-border/45 rounded-lg p-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none disabled:opacity-50"
-                  >
-                    {EMBEDDING_MODELS.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.displayName} ({model.dimensions} dimensions)
-                      </option>
-                    ))}
-                  </select>
+                  <div className='w-full bg-background/30 border border-border/45 rounded-lg p-2.5 text-xs text-muted-foreground flex items-center gap-2'>
+                    <span className='font-semibold text-foreground'>
+                      {activeProject
+                        ? (EMBEDDING_MODELS.find(m => m.id === activeProject.embeddingModelId)?.displayName ?? activeProject.embeddingModelId)
+                        : 'No project selected'}
+                    </span>
+                    {activeProject && (
+                      <span className='text-[10px] bg-secondary/60 border border-border/30 px-1.5 py-0.5 rounded text-muted-foreground'>
+                        locked
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">

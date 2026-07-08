@@ -45,6 +45,8 @@ export function AppShell({ children }: AppShellProps) {
         return 'Dashboard'
       case '/search':
         return 'Search & Chat'
+      case '/projects':
+        return 'Projects'
       case '/documents':
         return 'Document Management'
       case '/settings':

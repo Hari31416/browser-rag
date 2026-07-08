@@ -7,11 +7,17 @@ import { useQwen35 } from '@/hooks/use-qwen35'
 import { getLLMVariant } from '@/llm/llm-models'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 import { getEmbeddingProvider, localProvider } from '@/rag/embedding-runtime'
+import { type Project, getProject, listProjects, createProject } from '@/lib/projects'
+import { isDbInitialized } from '@/db/client'
 
 interface SystemInitContextType {
   preferences: Preferences
   updatePreferences: (newPrefs: Partial<Preferences>) => void
-  
+
+  // Project state
+  activeProject: Project | null
+  setActiveProject: (project: Project) => void
+
   // LLM handles
   gemma4: ReturnType<typeof useGemma4>
   webllm: ReturnType<typeof useWebLLM>
@@ -40,21 +46,75 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
   // 1. Preferences state
   const [preferences, setPreferencesState] = useState<Preferences>(() => loadPreferences())
 
-  // 2. Initialize LLM Engine Hooks (one global instantiation)
+  // 2. Active project state — loaded from DB after DB is ready
+  const [activeProject, setActiveProjectState] = useState<Project | null>(null)
+  const [dbReady, setDbReady] = useState(isDbInitialized())
+
+  // 3. Initialize LLM Engine Hooks (one global instantiation)
   const gemma4 = useGemma4()
   const webllm = useWebLLM()
   const lfm2 = useLfm2()
   const qwen35 = useQwen35()
 
-  // 3. Embedding model state
+  // 4. Embedding model state
   const [embeddingLoading, setEmbeddingLoading] = useState(false)
   const [embeddingProgress, setEmbeddingProgress] = useState(0)
   const [embeddingReady, setEmbeddingReady] = useState(false)
   const [loadingError, setLoadingError] = useState<string | null>(null)
 
+  // Poll until DB is ready
+  useEffect(() => {
+    if (dbReady) return
+    const interval = setInterval(() => {
+      if (isDbInitialized()) {
+        setDbReady(true)
+        clearInterval(interval)
+      }
+    }, 200)
+    return () => clearInterval(interval)
+  }, [dbReady])
+
+  // On DB ready: resolve active project from preferences, or seed a default one
+  useEffect(() => {
+    if (!dbReady) return
+
+    async function resolveActiveProject() {
+      try {
+        const prefs = loadPreferences()
+        let project: Project | null = null
+
+        if (prefs.activeProjectId) {
+          project = await getProject(prefs.activeProjectId)
+        }
+
+        if (!project) {
+          // Check if any projects exist; if not create a default
+          const all = await listProjects()
+          if (all.length > 0) {
+            project = all[0]
+          } else {
+            project = await createProject(
+              'Default Project',
+              'Auto-created default workspace',
+              'supabase-gte-small'
+            )
+          }
+          savePreferences({ activeProjectId: project.id })
+          setPreferencesState(loadPreferences())
+        }
+
+        setActiveProjectState(project)
+      } catch (err) {
+        console.error('Failed to resolve active project:', err)
+      }
+    }
+
+    resolveActiveProject()
+  }, [dbReady])
+
   // Determine active LLM hook dynamically
   const variant = getLLMVariant(preferences.llmVariantId)
-  
+
   let activeLlmHook: any
   if (variant.engine === 'transformers-js') activeLlmHook = qwen35
   else if (variant.engine === 'webllm') activeLlmHook = webllm
@@ -65,12 +125,13 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
   const llmLoading = activeLlmHook ? activeLlmHook.isLoading : false
   const llmProgress = activeLlmHook ? activeLlmHook.loadProgress : 0
 
-  // Check if embedding model is loaded on mount or whenever selected embedding model ID changes
+  // Check if embedding model is loaded whenever active project changes
   useEffect(() => {
-    const modelConfig = getEmbeddingModelConfig(preferences.embeddingModelId)
+    if (!activeProject) return
+    const modelConfig = getEmbeddingModelConfig(activeProject.embeddingModelId)
     const active = localProvider.getActiveModel()
     setEmbeddingReady(active !== null && active === modelConfig?.modelId)
-  }, [preferences.embeddingModelId])
+  }, [activeProject])
 
   // Preferences update wrapper
   const updatePreferences = useCallback((newPrefs: Partial<Preferences>) => {
@@ -78,17 +139,29 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
     setPreferencesState(updated)
   }, [])
 
-  // Load selected embedding model
+  // Set active project and persist to preferences
+  const setActiveProject = useCallback((project: Project) => {
+    setActiveProjectState(project)
+    savePreferences({ activeProjectId: project.id })
+    setPreferencesState(loadPreferences())
+    // Reset embedding ready state so user must re-load if model changed
+    const modelConfig = getEmbeddingModelConfig(project.embeddingModelId)
+    const active = localProvider.getActiveModel()
+    setEmbeddingReady(active !== null && active === modelConfig?.modelId)
+  }, [])
+
+  // Load selected embedding model (derived from active project)
   const loadEmbeddingModel = useCallback(async () => {
+    if (!activeProject) throw new Error('No active project selected')
     setLoadingError(null)
     setEmbeddingLoading(true)
     setEmbeddingProgress(0)
     try {
-      const modelConfig = getEmbeddingModelConfig(preferences.embeddingModelId)
+      const modelConfig = getEmbeddingModelConfig(activeProject.embeddingModelId)
       if (!modelConfig) {
-        throw new Error(`Embedding model config not found for: ${preferences.embeddingModelId}`)
+        throw new Error(`Embedding model config not found for: ${activeProject.embeddingModelId}`)
       }
-      const provider = getEmbeddingProvider(preferences.embeddingProviderId)
+      const provider = getEmbeddingProvider('local')
       await provider.load(modelConfig.modelId, (prog: any) => {
         if (prog.type === 'load') {
           setEmbeddingProgress(Math.round(prog.progress))
@@ -102,7 +175,7 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setEmbeddingLoading(false)
     }
-  }, [preferences.embeddingModelId, preferences.embeddingProviderId])
+  }, [activeProject])
 
   // Load active LLM model
   const loadLlmModel = useCallback(async () => {
@@ -121,6 +194,8 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
       value={{
         preferences,
         updatePreferences,
+        activeProject,
+        setActiveProject,
         gemma4,
         webllm,
         lfm2,
