@@ -61,6 +61,7 @@ export function UploadPanel({ onFilesSelected, disabled = false }: UploadPanelPr
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
+        onClick={(e) => e.stopPropagation()}
         multiple
         accept=".txt,.md,.json,.csv,.html,.pdf"
         className="hidden"
