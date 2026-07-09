@@ -187,18 +187,19 @@ function SettingsComponent() {
   const selectedOpt = getLLMOption(prefs.llmVariantId)
 
   return (
-    <div className='space-y-6 animate-fade-in max-w-4xl'>
+    <div className='space-y-6 max-w-4xl'>
       <div>
-        <p className='text-muted-foreground text-sm'>
+        <h1 className='font-heading text-2xl font-semibold tracking-tight'>Settings</h1>
+        <p className='text-muted-foreground text-sm mt-1'>
           Configure model parameters, chunking preferences, and local LLM settings.
         </p>
       </div>
 
       <div className='grid gap-6 md:grid-cols-2'>
         {/* RAG Pipeline Config */}
-        <Card className='bg-card/25 border-border/40 backdrop-blur-md shadow-lg rounded-xl overflow-hidden'>
-          <CardHeader className='py-4 border-b border-border/30 bg-card/5'>
-            <CardTitle className='text-sm font-semibold flex items-center gap-2'>
+        <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+          <CardHeader className='py-4 border-b border-border/50 bg-muted/20'>
+            <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
               <Cpu className='h-4 w-4 text-primary' />
               Retrieval &amp; Chunking Configuration
             </CardTitle>
@@ -211,7 +212,7 @@ function SettingsComponent() {
                 type='number'
                 value={activeProject?.chunkSize ?? 500}
                 onChange={(e) => handleSaveProject({ chunkSize: parseInt(e.target.value) || 500 })}
-                className='bg-background/50 border-border/45 h-9 text-xs'
+                className='h-9 text-xs'
                 disabled={!activeProject}
               />
               <p className='text-[10px] text-muted-foreground'>Maximum length of text segments.</p>
@@ -223,7 +224,7 @@ function SettingsComponent() {
                 type='number'
                 value={activeProject?.chunkOverlap ?? 100}
                 onChange={(e) => handleSaveProject({ chunkOverlap: parseInt(e.target.value) || 100 })}
-                className='bg-background/50 border-border/45 h-9 text-xs'
+                className='h-9 text-xs'
                 disabled={!activeProject}
               />
               <p className='text-[10px] text-muted-foreground'>Buffer overlap size to preserve context between chunks.</p>
@@ -235,13 +236,13 @@ function SettingsComponent() {
                 type='number'
                 value={activeProject?.retrievalTopK ?? 5}
                 onChange={(e) => handleSaveProject({ retrievalTopK: parseInt(e.target.value) || 5 })}
-                className='bg-background/50 border-border/45 h-9 text-xs'
+                className='h-9 text-xs'
                 disabled={!activeProject}
               />
               <p className='text-[10px] text-muted-foreground'>Number of chunks fed to the LLM context.</p>
             </div>
 
-            <div className='flex items-center justify-between p-3.5 bg-secondary/20 rounded-lg border border-border/35 mt-2'>
+            <div className='flex items-center justify-between p-3.5 bg-secondary/40 rounded-md border border-border/50 mt-2'>
               <div className='space-y-0.5 pr-2'>
                 <label className='text-xs font-semibold text-foreground'>Hybrid Retrieval (RRF)</label>
                 <p className='text-[10px] text-muted-foreground leading-snug'>Fuse semantic vector search with keyword exact matches.</p>
@@ -263,9 +264,9 @@ function SettingsComponent() {
         </Card>
 
         {/* LLM settings */}
-        <Card className='bg-card/25 border-border/40 backdrop-blur-md shadow-lg rounded-xl overflow-hidden flex flex-col'>
-          <CardHeader className='py-4 border-b border-border/30 bg-card/5 shrink-0'>
-            <CardTitle className='text-sm font-semibold flex items-center gap-2'>
+        <Card className='bg-card border-border/70 rounded-lg overflow-hidden flex flex-col'>
+          <CardHeader className='py-4 border-b border-border/50 bg-muted/20 shrink-0'>
+            <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
               <Cpu className='h-4 w-4 text-primary' />
               Local LLM Settings
             </CardTitle>
@@ -278,7 +279,7 @@ function SettingsComponent() {
                 <select
                   value={prefs.llmVariantId}
                   onChange={(e) => handleSavePrefs({ llmVariantId: e.target.value, llmModelId: getLLMOption(e.target.value).logicalModelId })}
-                  className='w-full px-3 py-2 text-xs bg-background/50 border border-border/45 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-colors h-9 text-foreground'
+                  className='w-full px-3 py-2 text-xs bg-card border border-border/70 rounded-md focus:outline-none focus:ring-1 focus:ring-ring transition-colors h-9 text-foreground'
                 >
                   {LLM_OPTIONS.map((opt) => (
                     <option key={opt.id} value={opt.id}>
@@ -288,11 +289,10 @@ function SettingsComponent() {
                 </select>
               </div>
 
-              {/* Selected Option details */}
-              <div className='p-4 bg-secondary/15 rounded-lg border border-border/20 space-y-3'>
+              <div className='p-4 bg-secondary/30 rounded-md border border-border/50 space-y-3'>
                 <div className='flex justify-between items-center text-xs'>
                   <span className='font-semibold text-foreground'>{selectedOpt.name}</span>
-                  <span className='text-[9px] bg-secondary/80 text-muted-foreground border border-border/30 px-1.5 py-0.2 rounded font-mono uppercase'>
+                  <span className='text-[9px] bg-secondary text-muted-foreground border border-border/50 px-1.5 py-0.5 rounded-sm font-mono uppercase'>
                     {selectedOpt.engineType}
                   </span>
                 </div>
@@ -306,9 +306,9 @@ function SettingsComponent() {
                       return (
                         <span
                           key={req}
-                          className={`text-[8px] px-1.5 py-0.5 rounded font-semibold uppercase border ${isGood
-                              ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-500/90'
-                              : 'border-orange-500/25 bg-orange-500/5 text-orange-500/90'
+                          className={`text-[8px] px-1.5 py-0.5 rounded-sm font-semibold uppercase border ${isGood
+                              ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                              : 'border-copper/30 bg-copper/5 text-copper'
                             }`}
                         >
                           {req}
@@ -326,7 +326,7 @@ function SettingsComponent() {
                   setIsSaved(true)
                   setTimeout(() => setIsSaved(false), 2000)
                 }}
-                className='shadow-md flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground select-none w-full sm:w-auto h-9 text-xs'
+                className='flex items-center gap-2 select-none w-full sm:w-auto h-9 text-xs'
               >
                 {isSaved ? (
                   <>
@@ -346,10 +346,10 @@ function SettingsComponent() {
       </div>
 
       {/* System Capabilities & Diagnostics */}
-      <Card className='bg-card/25 border-border/40 backdrop-blur-md shadow-lg rounded-xl overflow-hidden'>
-        <CardHeader className='py-4 border-b border-border/30 bg-card/5 flex flex-row items-center justify-between gap-4'>
+      <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+        <CardHeader className='py-4 border-b border-border/50 bg-muted/20 flex flex-row items-center justify-between gap-4'>
           <div>
-            <CardTitle className='text-sm font-semibold flex items-center gap-2'>
+            <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
               <Database className='h-4 w-4 text-primary' />
               System Capabilities &amp; Diagnostics
             </CardTitle>
@@ -370,8 +370,8 @@ function SettingsComponent() {
           <div className='grid gap-6 md:grid-cols-2'>
             {/* Browser capabilities sub-section */}
             <div className='space-y-3.5 text-xs'>
-              <h4 className='font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/30'>
-                <ShieldCheck className='h-4 w-4 text-emerald-500' />
+              <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
+                <ShieldCheck className='h-4 w-4 text-emerald-600 dark:text-emerald-400' />
                 Browser APIs &amp; Environment
               </h4>
               <div className='flex justify-between border-b border-border/20 pb-2'>
@@ -402,12 +402,12 @@ function SettingsComponent() {
 
             {/* Database diagnostics sub-section */}
             <div className='space-y-3.5 text-xs'>
-              <h4 className='font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/30'>
+              <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
                 <Database className='h-4 w-4 text-primary' />
                 Database Engine (PGlite)
               </h4>
               {dbStatus.error && !dbStatus.initialized ? (
-                <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-lg text-xs border border-destructive/20'>
+                <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md text-xs border border-destructive/20'>
                   <XCircle className='h-4 w-4 shrink-0' />
                   <span>{dbStatus.error}</span>
                 </div>
@@ -428,7 +428,7 @@ function SettingsComponent() {
                     <h5 className='font-medium text-[10px] text-muted-foreground uppercase tracking-wider'>
                       Table Row Counts
                     </h5>
-                    <div className='grid grid-cols-2 gap-2 text-[11px] bg-secondary/10 p-2.5 rounded-lg border border-border/20'>
+                    <div className='grid grid-cols-2 gap-2 text-[11px] bg-secondary/30 p-2.5 rounded-md border border-border/50'>
                       {Object.entries(dbStatus.tables).map(([table, count]) => (
                         <div key={table} className='flex justify-between border-b border-border/10 pb-0.5 last:border-0 last:pb-0'>
                           <span className='font-mono text-muted-foreground'>{table}:</span>
@@ -445,9 +445,9 @@ function SettingsComponent() {
       </Card>
 
       {/* Database Backup & Restore */}
-      <Card className='bg-card/25 border-border/40 backdrop-blur-md shadow-lg rounded-xl overflow-hidden'>
-        <CardHeader className='py-4 border-b border-border/30 bg-card/5'>
-          <CardTitle className='text-sm font-semibold flex items-center gap-2'>
+      <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+        <CardHeader className='py-4 border-b border-border/50 bg-muted/20'>
+          <CardTitle className='text-base font-heading font-semibold flex items-center gap-2'>
             <Database className='h-4 w-4 text-primary' />
             Database Backup &amp; Restore
           </CardTitle>
@@ -458,15 +458,15 @@ function SettingsComponent() {
             {/* Export Section */}
             <div className='space-y-4 text-xs flex flex-col justify-between h-full'>
               <div className='space-y-3'>
-                <h4 className='font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/30'>
+                <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
                   <Download className='h-4 w-4 text-primary' />
                   Export Database Backup
                 </h4>
                 <p className='text-muted-foreground leading-relaxed text-[11px]'>
                   Save all collections, documents, text chunks, vector embeddings, and search query history into a compressed backup archive. This backup can be used to transfer data to another profile or restore your workspace if browser site data is cleared.
                 </p>
-                <div className='flex items-center gap-2 text-[10px] bg-secondary/15 p-3 rounded-lg border border-border/20'>
-                  <ShieldCheck className='h-4 w-4 text-emerald-500 shrink-0' />
+                <div className='flex items-center gap-2 text-[10px] bg-secondary/30 p-3 rounded-md border border-border/50'>
+                  <ShieldCheck className='h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0' />
                   <span>The backup is fully contained within your browser and downloaded directly. No data is sent to any server.</span>
                 </div>
               </div>
@@ -474,7 +474,7 @@ function SettingsComponent() {
                 <Button
                   onClick={handleExport}
                   disabled={exporting || importing}
-                  className='w-full shadow-md flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground h-9 text-xs cursor-pointer select-none'
+                  className='w-full flex items-center justify-center gap-2 h-9 text-xs cursor-pointer select-none'
                 >
                   {exporting ? (
                     <>
@@ -492,24 +492,24 @@ function SettingsComponent() {
             </div>
 
             {/* Import Section */}
-            <div className='space-y-4 text-xs flex flex-col justify-between h-full border-t md:border-t-0 md:border-l border-border/20 pt-6 md:pt-0 md:pl-6'>
+            <div className='space-y-4 text-xs flex flex-col justify-between h-full border-t md:border-t-0 md:border-l border-border/40 pt-6 md:pt-0 md:pl-6'>
               <div className='space-y-3'>
-                <h4 className='font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/30'>
+                <h4 className='font-heading font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/50'>
                   <Upload className='h-4 w-4 text-primary' />
                   Restore Database Backup
                 </h4>
                 <p className='text-muted-foreground leading-relaxed text-[11px]'>
                   Load a previously exported `.tar.gz` database backup file to restore your workspace.
                 </p>
-                <div className='flex items-start gap-2 text-[10px] bg-amber-500/5 text-amber-500/90 border border-amber-500/25 p-3 rounded-lg leading-normal'>
-                  <AlertTriangle className='h-4 w-4 text-amber-500 shrink-0 mt-0.5' />
+                <div className='flex items-start gap-2 text-[10px] bg-copper/5 text-copper border border-copper/25 p-3 rounded-md leading-normal'>
+                  <AlertTriangle className='h-4 w-4 text-copper shrink-0 mt-0.5' />
                   <span>
                     <strong>Warning:</strong> Restoring will overwrite all current projects, documents, chunks, vectors, and query history. The application will reload automatically upon successful import.
                   </span>
                 </div>
 
                 {importError && (
-                  <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-lg text-xs border border-destructive/20'>
+                  <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md text-xs border border-destructive/20'>
                     <XCircle className='h-4 w-4 shrink-0' />
                     <span>{importError}</span>
                   </div>
@@ -531,14 +531,15 @@ function SettingsComponent() {
                       type='button'
                       onClick={handleSelectFileClick}
                       disabled={exporting || importing}
-                      className='w-full shadow-md flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground h-9 text-xs cursor-pointer'
+                      variant='secondary'
+                      className='w-full flex items-center justify-center gap-2 h-9 text-xs cursor-pointer'
                     >
                       <Upload className='h-4 w-4' />
                       Select Backup File
                     </Button>
                   </div>
                 ) : (
-                  <div className='bg-secondary/20 p-3 rounded-lg border border-border/30 space-y-3'>
+                  <div className='bg-secondary/30 p-3 rounded-md border border-border/50 space-y-3'>
                     <div className='flex justify-between items-center text-[11px]'>
                       <span className='font-semibold truncate max-w-[200px] text-foreground'>
                         Selected: {selectedFile?.name}
@@ -547,7 +548,7 @@ function SettingsComponent() {
                         {selectedFile ? (selectedFile.size / (1024 * 1024)).toFixed(2) : 0} MB
                       </span>
                     </div>
-                    <p className='text-[10px] text-amber-500/95 leading-normal'>
+                    <p className='text-[10px] text-copper leading-normal'>
                       Confirm that you want to overwrite the current database. This is a destructive operation.
                     </p>
                     <div className='flex gap-2'>

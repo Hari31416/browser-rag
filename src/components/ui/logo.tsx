@@ -5,6 +5,7 @@ interface LogoProps {
   size?: number
 }
 
+/** Open folio / ink-blot mark for Browser RAG */
 export function Logo({ className, size = 24 }: LogoProps) {
   return (
     <svg
@@ -13,17 +14,36 @@ export function Logo({ className, size = 24 }: LogoProps) {
       viewBox='0 0 24 24'
       className={cn('shrink-0', className)}
       fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
       xmlns='http://www.w3.org/2000/svg'
+      aria-hidden
     >
-      <path d='M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z' />
-      <path d='M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z' />
-      <path d='M12 5v14' />
-      <path d='M12 9h4' />
-      <path d='M12 14h-4' />
+      {/* Open folio spreads */}
+      <path
+        d='M4.5 5.5c2.2-1.2 4.3-.4 5.5.6v12.2c-1.4-1.1-3.5-1.8-5.5-.8V5.5Z'
+        fill='currentColor'
+        fillOpacity='0.18'
+        stroke='currentColor'
+        strokeWidth='1.4'
+        strokeLinejoin='round'
+      />
+      <path
+        d='M19.5 5.5c-2.2-1.2-4.3-.4-5.5.6v12.2c1.4-1.1 3.5-1.8 5.5-.8V5.5Z'
+        fill='currentColor'
+        fillOpacity='0.1'
+        stroke='currentColor'
+        strokeWidth='1.4'
+        strokeLinejoin='round'
+      />
+      {/* Spine */}
+      <path
+        d='M12 6.2v11.6'
+        stroke='currentColor'
+        strokeWidth='1.4'
+        strokeLinecap='round'
+      />
+      {/* Ink blot accent */}
+      <circle cx='16.2' cy='10.2' r='1.35' fill='currentColor' fillOpacity='0.55' />
+      <circle cx='17.4' cy='11.5' r='0.55' fill='currentColor' fillOpacity='0.35' />
     </svg>
   )
 }

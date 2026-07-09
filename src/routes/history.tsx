@@ -62,16 +62,16 @@ function HistoryComponent() {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Query History</h1>
-          <p className="text-muted-foreground text-sm">Review your past searches and conversations</p>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Query History</h1>
+          <p className="text-muted-foreground text-sm mt-1">Review your past searches and conversations</p>
         </div>
         {queryHistory.length > 0 && (
           <button
             type="button"
             onClick={handleClearHistory}
-            className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-md text-sm font-medium transition-colors"
           >
             <Trash2 className="h-4 w-4" />
             Clear History
@@ -80,29 +80,34 @@ function HistoryComponent() {
       </div>
 
       {queryHistory.length === 0 ? (
-        <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-sm">
-          <CardContent className="flex flex-col items-center justify-center py-24 text-center">
-            <History className="h-12 w-12 text-muted-foreground/20 mb-4" />
-            <p className="text-lg font-medium text-foreground">No history yet</p>
+        <Card className="border-border/70 bg-card">
+          <CardContent className="flex flex-col items-center justify-center py-24 text-center page-enter">
+            <History className="h-10 w-10 text-muted-foreground/25 mb-4" />
+            <p className="font-heading text-xl font-semibold text-foreground">No history yet</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
               Your search history will appear here once you start querying your documents.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {queryHistory.map((item: any) => (
+        <div className="relative space-y-0 pl-0 sm:pl-6">
+          <div className="hidden sm:block absolute left-[11px] top-3 bottom-3 w-px bg-border/70" aria-hidden />
+          {queryHistory.map((item: any, index: number) => (
             <Card
               key={item.id}
-              className="border-border/40 bg-card/40 hover:bg-card/60 backdrop-blur-sm shadow-sm cursor-pointer transition-all hover:border-primary/30 group"
+              className="border-border/70 bg-card hover:border-primary/35 cursor-pointer transition-all group relative mb-3 page-enter"
+              style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
               onClick={() => handleOpenQuery(item.id)}
             >
-              <CardContent className="p-4 sm:p-6 flex items-start gap-4">
-                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Search className="h-5 w-5 text-primary" />
+              <CardContent className="p-4 sm:p-5 flex items-start gap-4">
+                <div className="hidden sm:flex absolute -left-6 top-5 h-5 w-5 rounded-full bg-card border border-border items-center justify-center group-hover:border-primary/50 transition-colors">
+                  <Search className="h-2.5 w-2.5 text-primary" />
+                </div>
+                <div className="sm:hidden h-9 w-9 rounded-md bg-primary/8 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Search className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground text-base line-clamp-1 group-hover:text-primary transition-colors">
+                  <h3 className="font-heading font-semibold text-foreground text-base line-clamp-1 group-hover:text-primary transition-colors">
                     {item.query}
                   </h3>
                   <div

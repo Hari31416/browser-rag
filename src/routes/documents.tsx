@@ -277,12 +277,12 @@ function DocumentsComponent() {
   // Guard — no active project
   if (!activeProject) {
     return (
-      <div className='flex flex-col items-center justify-center h-full min-h-[400px] gap-4 text-center animate-fade-in'>
-        <div className='p-4 bg-secondary/50 rounded-2xl text-muted-foreground'>
+      <div className='flex flex-col items-center justify-center h-full min-h-[400px] gap-4 text-center page-enter'>
+        <div className='p-4 bg-secondary rounded-md text-muted-foreground border border-border/60'>
           <FolderOpen className='h-8 w-8' />
         </div>
         <div className='space-y-1'>
-          <p className='font-semibold text-sm text-foreground'>No active project</p>
+          <p className='font-heading font-semibold text-lg text-foreground'>No active project</p>
           <p className='text-xs text-muted-foreground max-w-xs'>
             Select or create a project first to manage documents.
           </p>
@@ -298,40 +298,42 @@ function DocumentsComponent() {
   }
 
   return (
-    <div className='space-y-6 flex-1 flex flex-col min-h-0 animate-fade-in'>
+    <div className='space-y-6 flex-1 flex flex-col min-h-0'>
       <div className='shrink-0 flex items-center justify-between gap-4'>
-        <p className='text-muted-foreground text-sm'>
-          Upload and index documents into your local PGlite vector database.
-        </p>
-        <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/40 border border-border/35 text-xs text-muted-foreground shrink-0'>
+        <div>
+          <h1 className='font-heading text-2xl font-semibold tracking-tight'>Documents</h1>
+          <p className='text-muted-foreground text-sm mt-1'>
+            Upload and index documents into your local PGlite vector database.
+          </p>
+        </div>
+        <div className='flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-card border border-border/70 text-xs text-muted-foreground shrink-0'>
           <FolderOpen className='h-3.5 w-3.5 text-primary/70' />
           <span className='font-semibold text-foreground'>{activeProject.name}</span>
-          <span className='text-border/60'>·</span>
+          <span className='text-border'>·</span>
           <Layers className='h-3 w-3' />
           <span>{modelConfig?.displayName ?? activeProject.embeddingModelId}</span>
         </div>
       </div>
 
       <div className='grid gap-6 md:grid-cols-3 flex-1 min-h-0'>
-        {/* Upload Container */}
         <div className='md:col-span-1 space-y-4 shrink-0'>
-          <Card className='bg-card/50 border-border/50 backdrop-blur-sm'>
+          <Card className='bg-card border-border/70'>
             <CardHeader>
               <CardTitle>File Upload</CardTitle>
               <CardDescription>Select documents to parse and add to the index.</CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
               {!embeddingReady ? (
-                <div className='space-y-4 p-4 border border-border/40 rounded-xl bg-accent/5 flex flex-col items-center text-center gap-3'>
-                  <div className='p-3 bg-primary/10 rounded-full text-primary animate-pulse'>
+                <div className='space-y-4 p-4 border border-border/70 rounded-md bg-accent/20 flex flex-col items-center text-center gap-3'>
+                  <div className='p-3 bg-primary/10 rounded-md text-primary border border-primary/20'>
                     <Layers className='h-6 w-6' />
                   </div>
                   <div className='space-y-1'>
-                    <h4 className='font-semibold text-sm'>Embedding Model Required</h4>
+                    <h4 className='font-heading font-semibold text-sm'>Embedding Model Required</h4>
                     <p className='text-[11px] text-muted-foreground max-w-[200px] mx-auto'>
                       Load the embedding model to extract document features and index them.
                     </p>
-                    <p className='text-[10px] text-primary/95 font-semibold mt-1'>
+                    <p className='text-[10px] text-primary font-semibold mt-1'>
                       Model: {modelConfig?.displayName || 'None'}
                     </p>
                   </div>
@@ -345,7 +347,7 @@ function DocumentsComponent() {
                         </span>
                         <span>{embeddingProgress}%</span>
                       </div>
-                      <div className='w-full bg-secondary/30 h-1 rounded-full overflow-hidden'>
+                      <div className='w-full bg-secondary h-1 rounded-full overflow-hidden'>
                         <div
                           className='bg-primary h-full transition-all duration-300'
                           style={{ width: `${embeddingProgress}%` }}
@@ -355,7 +357,7 @@ function DocumentsComponent() {
                   ) : (
                     <Button
                       onClick={loadEmbeddingModel}
-                      className='w-full mt-2 font-semibold shadow-md'
+                      className='w-full mt-2 font-semibold'
                     >
                       Load Embedding Model
                     </Button>
@@ -368,7 +370,7 @@ function DocumentsComponent() {
                     disabled={uploadMutation.isPending || !dbReady}
                   />
                   {uploadingStatus && (
-                    <div className='flex items-center gap-2 p-3 bg-accent/40 rounded-lg text-xs text-foreground font-medium animate-pulse border border-border/40'>
+                    <div className='flex items-center gap-2 p-3 bg-accent/40 rounded-md text-xs text-foreground font-medium border border-border/60'>
                       <Loader2 className='h-4 w-4 animate-spin text-primary shrink-0' />
                       <span>{uploadingStatus}</span>
                     </div>
@@ -379,9 +381,8 @@ function DocumentsComponent() {
           </Card>
         </div>
 
-        {/* Documents List */}
         <div className='md:col-span-2 flex flex-col min-h-0'>
-          <Card className='flex-1 bg-card/50 border-border/50 backdrop-blur-sm flex flex-col overflow-hidden'>
+          <Card className='flex-1 bg-card border-border/70 flex flex-col overflow-hidden'>
             <CardHeader className='shrink-0'>
               <CardTitle>Indexed Documents</CardTitle>
               <CardDescription>View and manage your locally stored files.</CardDescription>
@@ -419,12 +420,12 @@ function DocumentsComponent() {
                             </td>
                             <td className='p-3'>
                               <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium ${
                                   doc.status === 'completed'
-                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
                                     : doc.status === 'failed'
                                       ? 'bg-destructive/10 text-destructive'
-                                      : 'bg-amber-500/10 text-amber-500 animate-pulse'
+                                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 animate-pulse'
                                 }`}
                               >
                                 {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
@@ -473,12 +474,12 @@ function DocumentsComponent() {
                           <span className='font-mono'>{formatBytes(doc.size_bytes)}</span>
                           <span>·</span>
                           <span
-                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${
+                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm font-medium ${
                               doc.status === 'completed'
-                                ? 'bg-emerald-500/10 text-emerald-500'
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
                                 : doc.status === 'failed'
                                   ? 'bg-destructive/10 text-destructive'
-                                  : 'bg-amber-500/10 text-amber-500 animate-pulse'
+                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 animate-pulse'
                             }`}
                           >
                             {doc.status === 'completed' && <CheckCircle2 className='h-2.5 w-2.5 font-semibold' />}

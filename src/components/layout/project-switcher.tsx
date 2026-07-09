@@ -9,8 +9,6 @@ import { useSystemInit } from '@/context/system-init-context'
 import { isDbInitialized } from '@/db/client'
 import { cn } from '@/lib/utils'
 
-// ─── Create project mini-form ─────────────────────────────────────────────────
-
 interface CreateFormProps {
   onCreated: (project: Project) => void
   onCancel: () => void
@@ -38,7 +36,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className='p-3 border-t border-border/40 space-y-3'>
+    <form onSubmit={handleSubmit} className='p-3 border-t border-border/60 space-y-3'>
       <p className='text-[10px] font-semibold text-muted-foreground uppercase tracking-wider'>
         New Project
       </p>
@@ -49,7 +47,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder='Project name...'
-        className='h-7 text-xs bg-background/60 border-border/50'
+        className='h-7 text-xs'
         autoFocus
       />
       <div className='space-y-1'>
@@ -60,7 +58,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
         <select
           value={embeddingModelId}
           onChange={(e) => setEmbeddingModelId(e.target.value)}
-          className='w-full bg-background/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary'
+          className='w-full bg-card border border-border/70 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring'
         >
           {EMBEDDING_MODELS.map((m) => (
             <option key={m.id} value={m.id}>
@@ -84,7 +82,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
           type='submit'
           size='sm'
           disabled={!name.trim() || isCreating}
-          className='flex-1 h-7 text-xs bg-primary hover:bg-primary/90'
+          className='flex-1 h-7 text-xs'
         >
           {isCreating ? (
             <Sparkles className='h-3 w-3 mr-1 animate-pulse' />
@@ -97,8 +95,6 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
     </form>
   )
 }
-
-// ─── Main switcher ─────────────────────────────────────────────────────────────
 
 export function ProjectSwitcher() {
   const [open, setOpen] = useState(false)
@@ -114,7 +110,6 @@ export function ProjectSwitcher() {
     enabled: dbReady,
   })
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -141,14 +136,13 @@ export function ProjectSwitcher() {
 
   return (
     <div ref={ref} className='relative'>
-      {/* Trigger button */}
       <button
         type='button'
         onClick={() => { setOpen((o) => !o); setShowCreate(false) }}
         className={cn(
-          'flex items-center gap-2 h-8 px-3 rounded-lg border text-xs font-medium transition-all duration-150',
-          'bg-card/60 border-border/50 text-foreground hover:border-primary/50 hover:bg-card/90',
-          open && 'border-primary/50 bg-card/90 ring-1 ring-primary/20'
+          'flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-all duration-150',
+          'bg-card border-border/70 text-foreground hover:border-primary/40 hover:bg-card',
+          open && 'border-primary/40 ring-1 ring-ring/30'
         )}
       >
         <FolderOpen className='h-3.5 w-3.5 text-primary/80 shrink-0' />
@@ -158,14 +152,12 @@ export function ProjectSwitcher() {
         <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 shrink-0', open && 'rotate-180')} />
       </button>
 
-      {/* Dropdown panel */}
       {open && (
         <div className={cn(
           'absolute left-0 top-full mt-1.5 z-[200]',
-          'w-64 bg-card/95 border border-border/50 rounded-xl shadow-2xl backdrop-blur-xl',
-          'animate-fade-in overflow-hidden'
+          'w-64 bg-popover border border-border/70 rounded-lg shadow-lg',
+          'page-enter overflow-hidden'
         )}>
-          {/* Project list */}
           <div className='max-h-56 overflow-y-auto py-1'>
             {projects.length === 0 ? (
               <p className='px-3 py-4 text-xs text-muted-foreground text-center'>
@@ -182,12 +174,12 @@ export function ProjectSwitcher() {
                     onClick={() => handleSelect(project)}
                     className={cn(
                       'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-accent/60',
-                      isActive && 'bg-primary/8'
+                      isActive && 'bg-primary/6'
                     )}
                   >
                     <div className={cn(
                       'mt-0.5 h-4 w-4 shrink-0 rounded flex items-center justify-center',
-                      isActive ? 'text-primary' : 'text-transparent'
+                      isActive ? 'text-copper' : 'text-transparent'
                     )}>
                       <Check className='h-3.5 w-3.5' />
                     </div>
@@ -206,18 +198,17 @@ export function ProjectSwitcher() {
             )}
           </div>
 
-          {/* Footer actions */}
           {showCreate ? (
             <CreateForm
               onCreated={handleCreated}
               onCancel={() => setShowCreate(false)}
             />
           ) : (
-            <div className='border-t border-border/40 p-1'>
+            <div className='border-t border-border/60 p-1'>
               <button
                 type='button'
                 onClick={() => setShowCreate(true)}
-                className='w-full flex items-center gap-2 px-3 py-2 text-xs text-primary hover:bg-primary/8 rounded-lg transition-colors font-medium'
+                className='w-full flex items-center gap-2 px-3 py-2 text-xs text-primary hover:bg-primary/6 rounded-md transition-colors font-medium'
               >
                 <Plus className='h-3.5 w-3.5' />
                 Create new project

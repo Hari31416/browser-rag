@@ -75,27 +75,29 @@ export function AppShell({ children }: AppShellProps) {
         isMobileOpen={isMobileOpen}
         onMobileClose={() => setIsMobileOpen(false)}
       />
-      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
-        <TopBar
-          title={getPageTitle(location.pathname)}
-          onMenuToggle={() => setIsMobileOpen((o) => !o)}
-        />
-        <main className={cn(
-          'flex-1 min-h-0 bg-background/50',
-          location.pathname === '/'
-            ? 'overflow-hidden flex flex-col'
-            : 'overflow-y-auto p-4 md:p-6'
-        )}>
-          {location.pathname === '/' ? (
-            <div className="flex flex-col flex-1 min-h-0 h-full">
-              {children}
-            </div>
-          ) : (
-            <div className="mx-auto max-w-7xl h-full flex flex-col">
-              {children}
-            </div>
-          )}
-        </main>
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden relative paper-grain ink-wash">
+        <div className="relative z-10 flex flex-col flex-1 min-h-0 overflow-hidden">
+          <TopBar
+            title={getPageTitle(location.pathname)}
+            onMenuToggle={() => setIsMobileOpen((o) => !o)}
+          />
+          <main className={cn(
+            'flex-1 min-h-0',
+            location.pathname === '/'
+              ? 'overflow-hidden flex flex-col'
+              : 'overflow-y-auto p-4 md:p-6'
+          )}>
+            {location.pathname === '/' ? (
+              <div className="flex flex-col flex-1 min-h-0 h-full">
+                {children}
+              </div>
+            ) : (
+              <div className="mx-auto max-w-7xl h-full flex flex-col page-enter">
+                {children}
+              </div>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   )

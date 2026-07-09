@@ -65,22 +65,22 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
   }
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in p-4'>
-      <Card className='w-full max-w-md max-h-[90vh] overflow-y-auto bg-card/90 border-border/60 shadow-2xl backdrop-blur-xl relative rounded-2xl'>
-        <div className='absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/20 via-primary to-primary/20 shrink-0' />
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4'>
+      <Card className='w-full max-w-md max-h-[90vh] overflow-y-auto bg-card border-border/70 relative rounded-lg page-enter'>
+        <div className='absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent shrink-0' />
         <CardHeader className='pb-4 pt-6'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
-              <div className='p-2 bg-primary/10 rounded-lg text-primary'>
+              <div className='p-2 bg-primary/10 rounded-md text-primary border border-primary/20'>
                 <FolderOpen className='h-4 w-4' />
               </div>
-              <CardTitle className='text-base font-bold'>New Project</CardTitle>
+              <CardTitle className='text-base font-heading font-semibold'>New Project</CardTitle>
             </div>
             <Button
               variant='ghost'
               size='icon'
               onClick={onClose}
-              className='h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground'
+              className='h-7 w-7 rounded-md text-muted-foreground hover:text-foreground'
             >
               <X className='h-4 w-4' />
             </Button>
@@ -92,7 +92,7 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
         <CardContent className='pb-6'>
           <form onSubmit={handleSubmit} className='space-y-4'>
             {error && (
-              <div className='p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs'>
+              <div className='p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs'>
                 {error}
               </div>
             )}
@@ -104,7 +104,7 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder='e.g. Research Papers, Legal Docs'
-                className='bg-background/50 border-border/45 text-sm'
+                className='text-sm'
                 autoFocus
               />
             </div>
@@ -116,7 +116,7 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder='Brief description of this workspace'
-                className='bg-background/50 border-border/45 text-sm'
+                className='text-sm'
               />
             </div>
             <div className='space-y-2'>
@@ -130,10 +130,10 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                     key={model.id}
                     onClick={() => setEmbeddingModelId(model.id)}
                     className={cn(
-                      'p-3 rounded-lg border cursor-pointer transition-all duration-200',
+                      'p-3 rounded-md border cursor-pointer transition-all duration-200',
                       embeddingModelId === model.id
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary/40'
-                        : 'border-border/30 bg-card/10 hover:border-border/60 hover:bg-card/20'
+                        ? 'border-primary bg-primary/5 ring-1 ring-ring/40'
+                        : 'border-border/60 bg-card hover:border-border hover:bg-accent/30'
                     )}
                   >
                     <div className='flex items-center justify-between'>
@@ -144,13 +144,13 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
                         </p>
                       </div>
                       {embeddingModelId === model.id && (
-                        <CheckCircle2 className='h-4 w-4 text-primary shrink-0' />
+                        <CheckCircle2 className='h-4 w-4 text-copper shrink-0' />
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className='text-[10px] text-amber-500/80 flex items-start gap-1'>
+              <p className='text-[10px] text-copper flex items-start gap-1'>
                 <span className='font-bold shrink-0'>⚠</span>
                 This model is locked after creation. All documents in this project will be embedded with it.
               </p>
@@ -162,7 +162,7 @@ function CreateProjectDialog({ onClose, onCreated }: CreateDialogProps) {
               <Button
                 type='submit'
                 disabled={!name.trim() || isCreating}
-                className='flex-1 text-xs bg-primary hover:bg-primary/90'
+                className='flex-1 text-xs'
               >
                 {isCreating ? (
                   <span className='flex items-center gap-2'>
@@ -258,14 +258,17 @@ function ProjectsComponent() {
         />
       )}
 
-      <div className='space-y-6 animate-fade-in max-w-4xl'>
+      <div className='space-y-6 max-w-4xl'>
         <div className='flex items-center justify-between gap-4'>
-          <p className='text-muted-foreground text-sm'>
-            Each project is an isolated workspace with a locked embedding model. Switch between projects to work with different document corpora.
-          </p>
+          <div>
+            <h1 className='font-heading text-2xl font-semibold tracking-tight'>Projects</h1>
+            <p className='text-muted-foreground text-sm mt-1'>
+              Each project is an isolated workspace with a locked embedding model.
+            </p>
+          </div>
           <Button
             onClick={() => setShowCreateDialog(true)}
-            className='shrink-0 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md'
+            className='shrink-0 flex items-center gap-2'
           >
             <Plus className='h-4 w-4' />
             New Project
@@ -277,13 +280,13 @@ function ProjectsComponent() {
             Loading projects...
           </div>
         ) : projects.length === 0 ? (
-          <Card className='bg-card/25 border-border/40 backdrop-blur-md shadow-lg rounded-xl overflow-hidden'>
-            <CardContent className='flex flex-col items-center justify-center py-16 gap-4 text-center'>
-              <div className='p-4 bg-primary/10 rounded-2xl text-primary'>
+          <Card className='bg-card border-border/70 rounded-lg overflow-hidden'>
+            <CardContent className='flex flex-col items-center justify-center py-16 gap-4 text-center page-enter'>
+              <div className='p-4 bg-primary/10 rounded-md text-primary border border-primary/20'>
                 <FolderOpen className='h-8 w-8' />
               </div>
               <div className='space-y-1'>
-                <p className='font-semibold text-sm text-foreground'>No projects yet</p>
+                <p className='font-heading font-semibold text-lg text-foreground'>No projects yet</p>
                 <p className='text-xs text-muted-foreground max-w-xs'>
                   Create your first project to start indexing and querying documents.
                 </p>
@@ -298,7 +301,7 @@ function ProjectsComponent() {
             </CardContent>
           </Card>
         ) : (
-          <div className='grid gap-4'>
+          <div className='grid gap-3'>
             {projects.map((project) => {
               const isActive = activeProject?.id === project.id
               const docCount = docCounts[project.id] ?? 0
@@ -307,36 +310,33 @@ function ProjectsComponent() {
                 <Card
                   key={project.id}
                   className={cn(
-                    'relative overflow-hidden rounded-xl transition-all duration-200 cursor-pointer group',
+                    'relative overflow-hidden rounded-lg transition-all duration-200 cursor-pointer group border-l-2',
                     isActive
-                      ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30 shadow-lg shadow-primary/10'
-                      : 'bg-card/25 border-border/40 backdrop-blur-md shadow-md hover:border-border/70 hover:shadow-lg'
+                      ? 'border-border/70 border-l-primary bg-primary/4'
+                      : 'border-border/70 border-l-transparent bg-card hover:border-primary/30'
                   )}
                   onClick={() => handleSelectProject(project)}
                 >
-                  {isActive && (
-                    <div className='absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/20 via-primary to-primary/20' />
-                  )}
                   <CardContent className='p-5'>
                     <div className='flex items-start justify-between gap-4'>
                       <div className='flex items-start gap-3 flex-1 min-w-0'>
                         <div
                           className={cn(
-                            'p-2.5 rounded-xl shrink-0 mt-0.5 transition-colors',
+                            'p-2.5 rounded-md shrink-0 mt-0.5 transition-colors border',
                             isActive
-                              ? 'bg-primary/15 text-primary'
-                              : 'bg-secondary/60 text-muted-foreground group-hover:text-foreground'
+                              ? 'bg-primary/10 text-primary border-primary/25'
+                              : 'bg-secondary text-muted-foreground border-border/60 group-hover:text-foreground'
                           )}
                         >
                           <FolderOpen className='h-4 w-4' />
                         </div>
                         <div className='flex-1 min-w-0'>
                           <div className='flex items-center gap-2 flex-wrap'>
-                            <h3 className='font-semibold text-sm text-foreground truncate'>
+                            <h3 className='font-heading font-semibold text-base text-foreground truncate'>
                               {project.name}
                             </h3>
                             {isActive && (
-                              <span className='inline-flex items-center gap-1 text-[10px] bg-primary/15 text-primary border border-primary/25 px-2 py-0.5 rounded-full font-semibold shrink-0'>
+                              <span className='inline-flex items-center gap-1 text-[10px] bg-primary/10 text-primary border border-primary/25 px-2 py-0.5 rounded-sm font-semibold shrink-0'>
                                 <CheckCircle2 className='h-3 w-3' />
                                 Active
                               </span>
@@ -348,7 +348,7 @@ function ProjectsComponent() {
                             </p>
                           )}
                           <div className='flex flex-wrap items-center gap-3 mt-2'>
-                            <span className='inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary/60 text-muted-foreground border border-border/35 px-2 py-0.5 rounded-full'>
+                            <span className='inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary text-muted-foreground border border-border/50 px-2 py-0.5 rounded-sm'>
                               <Layers className='h-3 w-3 text-primary/70' />
                               {getModelLabel(project.embeddingModelId)}
                             </span>
@@ -375,7 +375,7 @@ function ProjectsComponent() {
                           e.stopPropagation()
                           handleDelete(project)
                         }}
-                        className='h-8 w-8 shrink-0 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity'
+                        className='h-8 w-8 shrink-0 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-md md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity'
                         title='Delete project'
                       >
                         <Trash2 className='h-4 w-4' />

@@ -51,11 +51,16 @@ export function UploadPanel({ onFilesSelected, disabled = false }: UploadPanelPr
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={triggerFileInput}
-      className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-3 relative ${
+      className={`border border-dashed rounded-md p-10 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-3 relative ${
         isDragging
-          ? 'border-primary bg-primary/10 scale-[0.99] shadow-inner shadow-primary/5'
-          : 'border-border/60 hover:border-primary/50 hover:bg-accent/5'
+          ? 'border-primary bg-primary/8 scale-[0.99]'
+          : 'border-border hover:border-primary/45 hover:bg-accent/30'
       } ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+      style={{
+        backgroundImage: isDragging
+          ? undefined
+          : 'repeating-linear-gradient(0deg, transparent, transparent 27px, color-mix(in oklch, var(--border) 55%, transparent) 28px)',
+      }}
     >
       <input
         type="file"
@@ -67,12 +72,12 @@ export function UploadPanel({ onFilesSelected, disabled = false }: UploadPanelPr
         className="hidden"
       />
 
-      <div className={`p-4 rounded-full bg-accent/50 ${isDragging ? 'bg-primary/20 scale-110' : ''} transition-all duration-300`}>
-        <UploadCloud className={`h-8 w-8 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+      <div className={`p-3 rounded-md bg-card border border-border/70 ${isDragging ? 'border-primary/40 text-primary' : 'text-muted-foreground'} transition-all duration-300`}>
+        <UploadCloud className={`h-7 w-7 ${isDragging ? 'text-primary' : ''}`} />
       </div>
 
       <div className="space-y-1">
-        <h3 className="font-semibold text-sm">
+        <h3 className="font-heading font-semibold text-sm">
           {isDragging ? 'Drop your files here' : 'Upload your documents'}
         </h3>
         <p className="text-xs text-muted-foreground max-w-sm">
@@ -80,11 +85,11 @@ export function UploadPanel({ onFilesSelected, disabled = false }: UploadPanelPr
         </p>
       </div>
 
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-2 border border-border/40 px-2 py-0.5 rounded bg-muted/40">
-        <AlertCircle className="h-3 w-3 text-muted-foreground" />
-        <span>Processing runs locally inside your browser</span>
-      </div>
+      {disabled && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
+          <AlertCircle className="h-5 w-5 text-muted-foreground" />
+        </div>
+      )}
     </div>
   )
 }
-export default UploadPanel
