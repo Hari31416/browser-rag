@@ -250,7 +250,9 @@ export async function retrieveChunks(
     }
   }
 
-  // 3. Query keyword matches using plainto_tsquery
+  // 3. Keyword matches: OR terms (BM25-style), ranked by ts_rank overlap.
+  // plainto_tsquery ANDs every token; we convert & → | so any term can match
+  // and chunks with more overlapping terms rank higher.
   const keywordLimit = options?.keywordLimit || 20
   const keywordValues: any[] = [query]
   const keywordQueryParts = [
@@ -262,10 +264,20 @@ export async function retrieveChunks(
       c.token_count,
       c.metadata_json,
       d.name as document_name,
-      ts_rank(to_tsvector('english', c.text), plainto_tsquery('english', $1)) as score
+      ts_rank(to_tsvector('english', c.text), q.tsq) as score
      FROM chunks c
      JOIN documents d ON c.document_id = d.id
-     WHERE to_tsvector('english', c.text) @@ plainto_tsquery('english', $1)`,
+     CROSS JOIN LATERAL (
+       SELECT CASE
+         WHEN length(trim(both from plainto_tsquery('english', $1)::text)) = 0 THEN NULL
+         ELSE to_tsquery(
+           'english',
+           regexp_replace(plainto_tsquery('english', $1)::text, ' & ', ' | ', 'g')
+         )
+       END AS tsq
+     ) q
+     WHERE q.tsq IS NOT NULL
+       AND to_tsvector('english', c.text) @@ q.tsq`,
   ]
 
   if (effectiveDocumentIds) {

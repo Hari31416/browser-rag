@@ -10,7 +10,7 @@ A fully local, private Retrieval-Augmented Generation (RAG) system running entir
 - **Multi-Project Workspaces**: Create isolated project environments, each configured with its own dedicated, locked embedding model to ensure vector consistency.
 - **Off-Thread Processing**: Document parsing, chunking, embedding generation, and vector retrieval are executed inside Web Workers to keep the main React UI thread responsive and smooth.
 - **Client-Side Text Extraction**: Extract text from `.txt`, `.md`, `.json`, `.csv`, `.html`, and `.pdf` files. PDF parsing is powered locally by `@llamaindex/liteparse-wasm` without remote server dependencies.
-- **Hybrid Search & Fusion**: Fuses semantic vector search (using pgvector) with exact keyword matches, ranked using Reciprocal Rank Fusion (RRF) for high-quality retrieval.
+- **Hybrid Search & Fusion**: Fuses semantic vector search (using pgvector) with keyword full-text search (OR term matching, ranked by `ts_rank`), then merges both lists with Reciprocal Rank Fusion (RRF).
 - **Local Embedding Provider**: Uses Transformers.js (ONNX Runtime Web) to run embedding models locally, leveraging WebGPU acceleration when available, with WebAssembly as a fallback.
 - **In-Browser Vector Database**: Runs PGlite (a lightweight WebAssembly build of PostgreSQL) with the pgvector extension, utilizing IndexedDB for local storage persistence.
 - **Selectable Local LLM Engines**: Stream responses from multiple local models using WebLLM, Transformers.js, Gemma-4-kernel, and LFM2-kernel. Supports deep reasoning "thinking" processes.
