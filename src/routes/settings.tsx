@@ -3,11 +3,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Save, CheckCircle2, Cpu, RefreshCw, Database, XCircle, ShieldCheck } from 'lucide-react'
+import { Save, CheckCircle2, Cpu, RefreshCw, Database, XCircle, ShieldCheck, Download, Upload, AlertTriangle } from 'lucide-react'
 import { type Preferences } from '@/lib/preferences'
 import { LLM_OPTIONS, getLLMOption } from '@/llm/llm-models'
 import { useSystemInit } from '@/context/system-init-context'
-import { isDbInitialized, getDb } from '@/db/client'
+import { isDbInitialized, getDb, exportDb, importDb } from '@/db/client'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsComponent,
@@ -33,6 +33,81 @@ function SettingsComponent() {
     indexedDb: false,
     wasmMultiThreading: false,
   })
+
+  // Backup / Restore states
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [showConfirmRestore, setShowConfirmRestore] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await exportDb()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `browser-rag-backup-${new Date().toISOString().split('T')[0]}.tar.gz`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      console.error('Failed to export database:', err)
+      alert('Failed to export database: ' + (err.message || String(err)))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.name.endsWith('.zip')) {
+        setImportError('Database backups are exported as compressed tarballs (.tar.gz). Standard .zip files are not supported.')
+        return
+      }
+      if (
+        !file.name.endsWith('.tar.gz') &&
+        !file.name.endsWith('.tgz') &&
+        !file.name.endsWith('.tar') &&
+        !file.name.endsWith('.gz')
+      ) {
+        setImportError('Selected file must be a backup archive (.tar.gz, .tgz, .tar)')
+        return
+      }
+      setSelectedFile(file)
+      setShowConfirmRestore(true)
+      setImportError(null)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile) return
+    setImporting(true)
+    setImportError(null)
+    try {
+      await importDb(selectedFile)
+      window.location.reload()
+    } catch (err: any) {
+      console.error('Failed to import database:', err)
+      setImportError(err.message || 'Failed to restore database from backup file.')
+      setImporting(false)
+      setShowConfirmRestore(false)
+      setSelectedFile(null)
+    }
+  }
+
+  const handleCancelRestore = () => {
+    setShowConfirmRestore(false)
+    setSelectedFile(null)
+    setImportError(null)
+  }
+
+  const handleSelectFileClick = () => {
+    document.getElementById('db-restore-upload')?.click()
+  }
 
   const handleSavePrefs = (newPrefs: Partial<Preferences>) => {
     updatePreferences(newPrefs)
@@ -364,6 +439,145 @@ function SettingsComponent() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Database Backup & Restore */}
+      <Card className='bg-card/25 border-border/40 backdrop-blur-md shadow-lg rounded-xl overflow-hidden'>
+        <CardHeader className='py-4 border-b border-border/30 bg-card/5'>
+          <CardTitle className='text-sm font-semibold flex items-center gap-2'>
+            <Database className='h-4 w-4 text-primary' />
+            Database Backup &amp; Restore
+          </CardTitle>
+          <CardDescription className='text-xs'>Export your local database workspace or restore it from a backup file.</CardDescription>
+        </CardHeader>
+        <CardContent className='p-6'>
+          <div className='grid gap-6 md:grid-cols-2'>
+            {/* Export Section */}
+            <div className='space-y-4 text-xs flex flex-col justify-between h-full'>
+              <div className='space-y-3'>
+                <h4 className='font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/30'>
+                  <Download className='h-4 w-4 text-primary' />
+                  Export Database Backup
+                </h4>
+                <p className='text-muted-foreground leading-relaxed text-[11px]'>
+                  Save all collections, documents, text chunks, vector embeddings, and search query history into a compressed backup archive. This backup can be used to transfer data to another profile or restore your workspace if browser site data is cleared.
+                </p>
+                <div className='flex items-center gap-2 text-[10px] bg-secondary/15 p-3 rounded-lg border border-border/20'>
+                  <ShieldCheck className='h-4 w-4 text-emerald-500 shrink-0' />
+                  <span>The backup is fully contained within your browser and downloaded directly. No data is sent to any server.</span>
+                </div>
+              </div>
+              <div className='pt-2'>
+                <Button
+                  onClick={handleExport}
+                  disabled={exporting || importing}
+                  className='w-full shadow-md flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground h-9 text-xs cursor-pointer select-none'
+                >
+                  {exporting ? (
+                    <>
+                      <RefreshCw className='h-4 w-4 animate-spin' />
+                      Preparing Backup...
+                    </>
+                  ) : (
+                    <>
+                      <Download className='h-4 w-4' />
+                      Export Backup File
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Import Section */}
+            <div className='space-y-4 text-xs flex flex-col justify-between h-full border-t md:border-t-0 md:border-l border-border/20 pt-6 md:pt-0 md:pl-6'>
+              <div className='space-y-3'>
+                <h4 className='font-semibold text-xs text-foreground/80 flex items-center gap-1.5 pb-1 border-b border-border/30'>
+                  <Upload className='h-4 w-4 text-primary' />
+                  Restore Database Backup
+                </h4>
+                <p className='text-muted-foreground leading-relaxed text-[11px]'>
+                  Load a previously exported `.tar.gz` database backup file to restore your workspace.
+                </p>
+                <div className='flex items-start gap-2 text-[10px] bg-amber-500/5 text-amber-500/90 border border-amber-500/25 p-3 rounded-lg leading-normal'>
+                  <AlertTriangle className='h-4 w-4 text-amber-500 shrink-0 mt-0.5' />
+                  <span>
+                    <strong>Warning:</strong> Restoring will overwrite all current projects, documents, chunks, vectors, and query history. The application will reload automatically upon successful import.
+                  </span>
+                </div>
+
+                {importError && (
+                  <div className='flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-lg text-xs border border-destructive/20'>
+                    <XCircle className='h-4 w-4 shrink-0' />
+                    <span>{importError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className='pt-2 space-y-2'>
+                {!showConfirmRestore ? (
+                  <div>
+                    <input
+                      type='file'
+                      accept='.tar.gz,.tgz,.tar,.gz,.zip,application/gzip,application/x-gzip,application/x-tar,application/zip'
+                      onChange={handleFileChange}
+                      className='hidden'
+                      id='db-restore-upload'
+                      disabled={exporting || importing}
+                    />
+                    <Button
+                      type='button'
+                      onClick={handleSelectFileClick}
+                      disabled={exporting || importing}
+                      className='w-full shadow-md flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground h-9 text-xs cursor-pointer'
+                    >
+                      <Upload className='h-4 w-4' />
+                      Select Backup File
+                    </Button>
+                  </div>
+                ) : (
+                  <div className='bg-secondary/20 p-3 rounded-lg border border-border/30 space-y-3'>
+                    <div className='flex justify-between items-center text-[11px]'>
+                      <span className='font-semibold truncate max-w-[200px] text-foreground'>
+                        Selected: {selectedFile?.name}
+                      </span>
+                      <span className='text-[10px] text-muted-foreground'>
+                        {selectedFile ? (selectedFile.size / (1024 * 1024)).toFixed(2) : 0} MB
+                      </span>
+                    </div>
+                    <p className='text-[10px] text-amber-500/95 leading-normal'>
+                      Confirm that you want to overwrite the current database. This is a destructive operation.
+                    </p>
+                    <div className='flex gap-2'>
+                      <Button
+                        onClick={handleImport}
+                        disabled={importing}
+                        variant='destructive'
+                        className='flex-1 h-8 text-[11px] cursor-pointer'
+                      >
+                        {importing ? (
+                          <>
+                            <RefreshCw className='h-3 w-3 animate-spin mr-1' />
+                            Restoring...
+                          </>
+                        ) : (
+                          'Yes, Overwrite & Restore'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleCancelRestore}
+                        disabled={importing}
+                        variant='outline'
+                        className='flex-1 h-8 text-[11px] cursor-pointer'
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
