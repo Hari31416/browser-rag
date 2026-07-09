@@ -14,7 +14,11 @@ A fully local, private Retrieval-Augmented Generation (RAG) system running entir
 - **Local Embedding Provider**: Uses Transformers.js (ONNX Runtime Web) to run embedding models locally, leveraging WebGPU acceleration when available, with WebAssembly as a fallback.
 - **In-Browser Vector Database**: Runs PGlite (a lightweight WebAssembly build of PostgreSQL) with the pgvector extension, utilizing IndexedDB for local storage persistence.
 - **Selectable Local LLM Engines**: Stream responses from multiple local models using WebLLM, Transformers.js, Gemma-4-kernel, and LFM2-kernel. Supports deep reasoning "thinking" processes.
-- **Traceable Citations**: Generated responses include interactive citation tooltips linking back to source document chunks, displaying page numbers, scores, and retrieved text previews.
+- **Multi-Turn Chat**: Conversation memory across turns, with LLM query rewriting that turns follow-ups into standalone search queries for better retrieval.
+- **Traceable Citations**: Generated responses include interactive citation tooltips linking back to source document chunks.
+- **Retrieval Debug Panel**: Toggleable per-answer debug view with user vs rewritten query, semantic hits, keyword hits, RRF final ranking, settings, and stage timings.
+- **Document Chunk Explorer**: Preview indexed chunks per document, including token counts, page numbers, and heading paths.
+- **Failed Index Retry**: Failed uploads show error details and can be retried from the stored original file.
 - **Diagnostics & Insights**: Real-time monitoring of browser capabilities (WebGPU, Web Workers, IndexedDB, WASM multi-threading) and PGlite database statistics (schema versions, table row counts).
 
 ## Tech Stack

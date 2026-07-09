@@ -23,7 +23,8 @@ import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { getLLMVariant, getLLMOption, LLM_OPTIONS } from '@/llm/llm-models'
 import { EMBEDDING_MODELS } from '@/rag/embedding-models'
-import { generateRAGAnswer } from '@/rag/orchestrator'
+import { generateRAGAnswer, type RagDebugInfo } from '@/rag/orchestrator'
+import { RetrievalDebugPanel } from '@/components/chat/retrieval-debug-panel'
 import { useSystemInit } from '@/context/system-init-context'
 import type { LLMRuntimeHandles } from '@/llm/llm-runtime'
 import { marked } from 'marked'
@@ -44,6 +45,9 @@ interface ChatMessage {
   content: string
   thinking?: string
   citations?: any[]
+  /** Standalone query used for retrieval (when rewritten from conversation). */
+  retrievalQuery?: string
+  debug?: RagDebugInfo
   timestamp: Date
   isStreaming?: boolean
 }
@@ -206,6 +210,8 @@ function ChatBubble({ message, onCopy }: { message: ChatMessage; onCopy: (t: str
             </div>
           </div>
         )}
+
+        {message.debug && <RetrievalDebugPanel debug={message.debug} />}
 
         {message.content && (
           <div className="flex items-center gap-2 pl-1">
@@ -397,22 +403,34 @@ function ChatComponent() {
     abortControllerRef.current = ctrl
 
     try {
+      // Prior completed turns only (exclude the placeholders just appended)
+      const conversationHistory = messages
+        .filter((m) => !m.isStreaming && m.content.trim().length > 0)
+        .map((m) => ({ role: m.role, content: m.content }))
+
       const stream = generateRAGAnswer(q, {
         projectId: activeProject?.id ?? '',
         embeddingModelId: activeProject?.embeddingModelId ?? '',
         documentIds: selectedDocIds.size > 0 ? Array.from(selectedDocIds) : undefined,
+        conversationHistory,
         abortSignal: ctrl.signal,
         llmHandles: getLLMHandles(),
       })
 
-      setStatusMessage('Streaming answer...')
+      setStatusMessage(conversationHistory.length > 0 ? 'Rewriting query for retrieval...' : 'Searching documents...')
       let finalAnswer = ''
       let finalCitations: any[] = []
 
       for await (const chunk of stream) {
         if (ctrl.signal.aborted) break
-        if (chunk.type === 'citations' && chunk.citations) {
+        if (chunk.type === 'retrieval_query' && chunk.retrievalQuery) {
+          setStatusMessage('Searching documents...')
+          setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, retrievalQuery: chunk.retrievalQuery } : m))
+        } else if (chunk.type === 'debug' && chunk.debug) {
+          setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, debug: chunk.debug } : m))
+        } else if (chunk.type === 'citations' && chunk.citations) {
           finalCitations = chunk.citations
+          setStatusMessage('Streaming answer...')
           setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, citations: chunk.citations } : m))
         } else if (chunk.type === 'thinking_delta' && chunk.text) {
           setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, thinking: (m.thinking ?? '') + chunk.text } : m))

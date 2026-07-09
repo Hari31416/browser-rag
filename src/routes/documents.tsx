@@ -4,10 +4,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { UploadPanel } from '@/components/documents/upload-panel'
+import { ChunkExplorer } from '@/components/documents/chunk-explorer'
 import { isDbInitialized, getDb } from '@/db/client'
-import { getEmbeddingProvider } from '@/rag/embedding-runtime'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
-import { FileText, Trash2, CheckCircle2, AlertCircle, Loader2, Layers, FolderOpen } from 'lucide-react'
+import { indexDocument, markDocumentFailed } from '@/rag/indexing'
+import {
+  saveDocumentFile,
+  getDocumentFile,
+  deleteDocumentFile,
+} from '@/lib/document-files'
+import {
+  FileText,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Layers,
+  FolderOpen,
+  RotateCcw,
+  Eye,
+} from 'lucide-react'
 import { useSystemInit } from '@/context/system-init-context'
 
 export const Route = createFileRoute('/documents')({
@@ -27,8 +43,8 @@ function DocumentsComponent() {
   const queryClient = useQueryClient()
   const [dbReady, setDbReady] = useState(isDbInitialized())
   const [uploadingStatus, setUploadingStatus] = useState<string | null>(null)
+  const [explorerDoc, setExplorerDoc] = useState<{ id: string; name: string } | null>(null)
 
-  // Consume from system context
   const {
     activeProject,
     embeddingReady,
@@ -54,7 +70,6 @@ function DocumentsComponent() {
     return () => clearInterval(interval)
   }, [dbReady])
 
-  // Query documents list scoped to active project
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ['documents', dbReady, activeProject?.id],
     queryFn: async () => {
@@ -69,19 +84,11 @@ function DocumentsComponent() {
     enabled: dbReady && !!activeProject,
   })
 
-  // Mutation for file upload and text extraction
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
       if (!dbReady) throw new Error('Database not ready')
       if (!activeProject) throw new Error('No active project selected')
       const db = getDb()
-      const currentModelConfig = getEmbeddingModelConfig(activeProject.embeddingModelId)
-      if (!currentModelConfig) {
-        throw new Error(`Embedding model configuration not found for: ${activeProject.embeddingModelId}`)
-      }
-      const provider = getEmbeddingProvider('local')
-
-      console.log('[INDEXING START] Processing files:', files.map(f => f.name))
 
       for (const file of files) {
         setUploadingStatus(`Processing ${file.name}...`)
@@ -89,184 +96,112 @@ function DocumentsComponent() {
         const arrayBuffer = await file.arrayBuffer()
         const fileBytes = new Uint8Array(arrayBuffer)
 
-        console.log(`[INDEXING STEP] Inserting pending record for document: ${file.name} (ID: ${docId})`)
-        // Insert initial document row with project_id
         await db.query(
           `INSERT INTO documents (id, project_id, source_type, name, mime_type, size_bytes, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [docId, activeProject.id, file.name.split('.').pop() || 'txt', file.name, file.type, file.size, 'pending']
         )
 
-        // Force react-query to refresh listing so the UI immediately shows 'pending'
+        try {
+          await saveDocumentFile(docId, file.name, file.type, fileBytes)
+        } catch (storeErr) {
+          console.warn('Failed to persist file bytes for retry:', storeErr)
+        }
+
         queryClient.invalidateQueries({ queryKey: ['documents'] })
 
-        console.log(`[INDEXING STEP] Spawning indexing.worker for: ${file.name}`)
-        // Run Web Worker for off-thread parsing and chunking
-        await new Promise<void>((resolve, reject) => {
-          const worker = new Worker(
-            new URL('../workers/indexing.worker.ts', import.meta.url),
-            { type: 'module' }
-          )
-
-          worker.postMessage({
+        try {
+          await indexDocument({
             docId,
             fileBytes,
             fileName: file.name,
             mimeType: file.type,
-            options: {
-              chunkSize: activeProject?.chunkSize ?? 500,
-              chunkOverlap: activeProject?.chunkOverlap ?? 100,
-            },
+            projectId: activeProject.id,
+            embeddingModelId: activeProject.embeddingModelId,
+            chunkSize: activeProject.chunkSize ?? 500,
+            chunkOverlap: activeProject.chunkOverlap ?? 100,
+            onStatus: setUploadingStatus,
           })
-
-          worker.onmessage = async (event) => {
-            const { status, extraction, chunks, error } = event.data
-            console.log(`[INDEXING WORKER ONMESSAGE] Status: ${status} for file: ${file.name}`)
-
-            if (status === 'success') {
-              try {
-                console.log(`[INDEXING STEP] Text extraction successful. Chunks count: ${chunks.length}. Loading embedding provider.`)
-                setUploadingStatus(`Loading embedding model ${currentModelConfig.displayName}...`)
-                await provider.load(currentModelConfig.modelId, (prog: any) => {
-                  if (prog.type === 'load') {
-                    setUploadingStatus(
-                      `Downloading ${currentModelConfig.displayName}: ${Math.round(prog.progress)}%`
-                    )
-                  }
-                })
-
-                console.log(`[INDEXING STEP] Embedding model ready. Generating embeddings for ${chunks.length} chunks...`)
-                setUploadingStatus(`Generating embeddings for ${chunks.length} chunks...`)
-                const passagePrefix = currentModelConfig.requiresPrefix && currentModelConfig.passagePrefix
-                  ? currentModelConfig.passagePrefix
-                  : ''
-                const chunkTexts = chunks.map((c: any) => passagePrefix + c.text)
-                const embeddingResults = await provider.embedTexts(chunkTexts, {
-                  onProgress: (prog: any) => {
-                    if (prog.type === 'embed') {
-                      setUploadingStatus(
-                        `Embedding chunks: ${prog.current} of ${prog.total}`
-                      )
-                    }
-                  },
-                })
-
-                console.log(`[INDEXING STEP] Embedding generation completed. Starting database write transaction...`)
-                const ocrRequired = extraction.metadata?.ocrRequired ? 1 : 0
-                const metadataJson = JSON.stringify({
-                  ocrRequired,
-                  pageCount: extraction.metadata?.pageCount || 1,
-                  extension: extraction.metadata?.extension || file.name.split('.').pop(),
-                })
-
-                // Use transaction to update document and insert chunks atomically
-                await db.transaction(async (tx) => {
-                  await tx.query(
-                    `UPDATE documents
-                     SET status = $1, metadata_json = $2, updated_at = CURRENT_TIMESTAMP
-                     WHERE id = $3`,
-                    ['completed', metadataJson, docId]
-                  )
-
-                  for (let i = 0; i < chunks.length; i++) {
-                    const chunk = chunks[i]
-                    const embeddingVector = embeddingResults[i].embedding
-                    const vectorString = `[${embeddingVector.join(',')}]`
-                    const chunkId = crypto.randomUUID()
-
-                    await tx.query(
-                      `INSERT INTO chunks (
-                        id, document_id, chunk_index, text, token_count,
-                        embedding_model_id, embedding_provider_id, embedding_dimensions, embedding, metadata_json
-                      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                      [
-                        chunkId,
-                        docId,
-                        chunk.chunkIndex,
-                        chunk.text,
-                        chunk.tokenCount,
-                        currentModelConfig.id,
-                        provider.id,
-                        currentModelConfig.dimensions,
-                        vectorString,
-                        JSON.stringify({
-                          startOffset: chunk.startOffset,
-                          endOffset: chunk.endOffset,
-                          pageNumber: chunk.pageNumber,
-                          headingPath: chunk.headingPath,
-                        }),
-                      ]
-                    )
-                  }
-                })
-
-                console.log(`[INDEXING SUCCESS] Indexing fully completed and written to PGlite database for: ${file.name}`)
-                worker.terminate()
-                resolve()
-              } catch (writeErr: any) {
-                console.error(`[INDEXING WRITE ERROR] Failed during embedding load, inference, or DB write:`, writeErr)
-                try {
-                  await db.query(
-                    `UPDATE documents
-                     SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
-                     WHERE id = $3`,
-                    ['failed', writeErr?.message || String(writeErr), docId]
-                  )
-                } catch (dbErr) {
-                  console.error(`[INDEXING FATAL] Failed to update document status to failed:`, dbErr)
-                }
-                worker.terminate()
-                reject(writeErr)
-              }
-            } else {
-              console.error(`[INDEXING WORKER ERROR] Worker returned failure status for ${file.name}:`, error)
-              // Update status to failed
-              await db.query(
-                `UPDATE documents
-                 SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = $3`,
-                ['failed', error || 'Worker parsing/chunking failed', docId]
-              )
-              worker.terminate()
-              reject(new Error(error))
-            }
-          }
-
-          worker.onerror = async (err) => {
-            console.error(`[INDEXING WORKER CRASH] Worker crashed for ${file.name}:`, err)
-            await db.query(
-              `UPDATE documents
-               SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP
-               WHERE id = $3`,
-              ['failed', err.message || 'Worker runtime error', docId]
-            )
-            worker.terminate()
-            reject(err)
-          }
-        })
+        } catch (err: any) {
+          const message = err?.message || String(err)
+          await markDocumentFailed(docId, message)
+          throw err
+        }
       }
     },
     onSuccess: () => {
       setUploadingStatus(null)
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+      queryClient.invalidateQueries({ queryKey: ['project-docs'] })
     },
     onError: (error) => {
       setUploadingStatus(`Indexing failed: ${error.message}`)
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
       setTimeout(() => setUploadingStatus(null), 5000)
     },
   })
 
-  // Mutation for deleting a document
+  const retryMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      if (!dbReady) throw new Error('Database not ready')
+      if (!activeProject) throw new Error('No active project selected')
+
+      const stored = await getDocumentFile(docId)
+      if (!stored) {
+        throw new Error('Original file is not available for retry. Please re-upload the document.')
+      }
+
+      setUploadingStatus(`Retrying ${stored.fileName}...`)
+      const fileBytes = new Uint8Array(stored.bytes)
+
+      try {
+        await indexDocument({
+          docId,
+          fileBytes,
+          fileName: stored.fileName,
+          mimeType: stored.mimeType,
+          projectId: activeProject.id,
+          embeddingModelId: activeProject.embeddingModelId,
+          chunkSize: activeProject.chunkSize ?? 500,
+          chunkOverlap: activeProject.chunkOverlap ?? 100,
+          onStatus: setUploadingStatus,
+        })
+      } catch (err: any) {
+        await markDocumentFailed(docId, err?.message || String(err))
+        throw err
+      }
+    },
+    onSuccess: () => {
+      setUploadingStatus(null)
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+      queryClient.invalidateQueries({ queryKey: ['project-docs'] })
+      queryClient.invalidateQueries({ queryKey: ['document-chunks'] })
+    },
+    onError: (error) => {
+      setUploadingStatus(`Retry failed: ${error.message}`)
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      setTimeout(() => setUploadingStatus(null), 5000)
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: async (docId: string) => {
       if (!dbReady) throw new Error('Database not ready')
       const db = getDb()
       await db.query('DELETE FROM documents WHERE id = $1', [docId])
+      try {
+        await deleteDocumentFile(docId)
+      } catch (_) {
+        /* best-effort cleanup */
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       queryClient.invalidateQueries({ queryKey: ['project-doc-counts'] })
+      queryClient.invalidateQueries({ queryKey: ['project-docs'] })
+      if (explorerDoc) setExplorerDoc(null)
     },
   })
 
@@ -274,7 +209,8 @@ function DocumentsComponent() {
     uploadMutation.mutate(files)
   }
 
-  // Guard — no active project
+  const isBusy = uploadMutation.isPending || retryMutation.isPending
+
   if (!activeProject) {
     return (
       <div className='flex flex-col items-center justify-center h-full min-h-[400px] gap-4 text-center page-enter'>
@@ -299,6 +235,14 @@ function DocumentsComponent() {
 
   return (
     <div className='space-y-6 flex-1 flex flex-col min-h-0'>
+      {explorerDoc && (
+        <ChunkExplorer
+          documentId={explorerDoc.id}
+          documentName={explorerDoc.name}
+          onClose={() => setExplorerDoc(null)}
+        />
+      )}
+
       <div className='shrink-0 flex items-center justify-between gap-4'>
         <div>
           <h1 className='font-heading text-2xl font-semibold tracking-tight'>Documents</h1>
@@ -367,7 +311,7 @@ function DocumentsComponent() {
                 <>
                   <UploadPanel
                     onFilesSelected={handleFilesSelected}
-                    disabled={uploadMutation.isPending || !dbReady}
+                    disabled={isBusy || !dbReady}
                   />
                   {uploadingStatus && (
                     <div className='flex items-center gap-2 p-3 bg-accent/40 rounded-md text-xs text-foreground font-medium border border-border/60'>
@@ -400,7 +344,6 @@ function DocumentsComponent() {
                 </div>
               ) : (
                 <div className='space-y-4'>
-                  {/* Desktop Table View */}
                   <div className='hidden sm:block border border-border/50 rounded-lg overflow-hidden'>
                     <table className='w-full text-left text-sm border-collapse'>
                       <thead>
@@ -413,9 +356,16 @@ function DocumentsComponent() {
                       </thead>
                       <tbody className='divide-y divide-border/40'>
                         {documents.map((doc: any) => (
-                          <tr key={doc.id} className='hover:bg-accent/10 transition-colors'>
-                            <td className='p-3 font-medium max-w-[200px] truncate'>{doc.name}</td>
-                            <td className='p-3 text-muted-foreground font-mono text-xs'>
+                          <tr key={doc.id} className='hover:bg-accent/10 transition-colors align-top'>
+                            <td className='p-3 font-medium max-w-[220px]'>
+                              <div className='truncate'>{doc.name}</div>
+                              {doc.status === 'failed' && doc.error_message && (
+                                <p className='text-[11px] text-destructive/90 mt-1 leading-snug line-clamp-3 font-normal'>
+                                  {doc.error_message}
+                                </p>
+                              )}
+                            </td>
+                            <td className='p-3 text-muted-foreground font-mono text-xs whitespace-nowrap'>
                               {formatBytes(doc.size_bytes)}
                             </td>
                             <td className='p-3'>
@@ -430,21 +380,51 @@ function DocumentsComponent() {
                               >
                                 {doc.status === 'completed' && <CheckCircle2 className='h-3 w-3' />}
                                 {doc.status === 'failed' && <AlertCircle className='h-3 w-3' />}
-                                {doc.status === 'processing' && <Loader2 className='h-3 w-3 animate-spin' />}
-                                {doc.status === 'pending' && <Loader2 className='h-3 w-3 animate-spin' />}
+                                {(doc.status === 'processing' || doc.status === 'pending') && (
+                                  <Loader2 className='h-3 w-3 animate-spin' />
+                                )}
                                 <span className='capitalize'>{doc.status}</span>
                               </span>
                             </td>
                             <td className='p-3 text-right'>
-                              <Button
-                                variant='ghost'
-                                size='icon'
-                                disabled={deleteMutation.isPending}
-                                onClick={() => deleteMutation.mutate(doc.id)}
-                                className='h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
-                              >
-                                <Trash2 className='h-4 w-4' />
-                              </Button>
+                              <div className='inline-flex items-center gap-0.5'>
+                                {doc.status === 'completed' && (
+                                  <Button
+                                    variant='ghost'
+                                    size='icon'
+                                    title='Explore chunks'
+                                    onClick={() => setExplorerDoc({ id: doc.id, name: doc.name })}
+                                    className='h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg'
+                                  >
+                                    <Eye className='h-4 w-4' />
+                                  </Button>
+                                )}
+                                {doc.status === 'failed' && (
+                                  <Button
+                                    variant='ghost'
+                                    size='icon'
+                                    title='Retry indexing'
+                                    disabled={isBusy}
+                                    onClick={() => retryMutation.mutate(doc.id)}
+                                    className='h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg'
+                                  >
+                                    {retryMutation.isPending && retryMutation.variables === doc.id ? (
+                                      <Loader2 className='h-4 w-4 animate-spin' />
+                                    ) : (
+                                      <RotateCcw className='h-4 w-4' />
+                                    )}
+                                  </Button>
+                                )}
+                                <Button
+                                  variant='ghost'
+                                  size='icon'
+                                  disabled={deleteMutation.isPending || isBusy}
+                                  onClick={() => deleteMutation.mutate(doc.id)}
+                                  className='h-8 w-8 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
+                                >
+                                  <Trash2 className='h-4 w-4' />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -452,17 +432,39 @@ function DocumentsComponent() {
                     </table>
                   </div>
 
-                  {/* Mobile Card List View */}
                   <div className='sm:hidden space-y-3'>
                     {documents.map((doc: any) => (
-                      <div key={doc.id} className='p-3 rounded-lg border border-border/45 bg-accent/5 flex flex-col gap-2 relative'>
-                        <div className='flex items-start justify-between gap-2 pr-8'>
-                          <p className='font-medium text-xs text-foreground break-all line-clamp-2'>{doc.name}</p>
-                          <div className='absolute top-2.5 right-2.5'>
+                      <div key={doc.id} className='p-3 rounded-lg border border-border/45 bg-accent/5 flex flex-col gap-2'>
+                        <div className='flex items-start justify-between gap-2'>
+                          <p className='font-medium text-xs text-foreground break-all line-clamp-2 flex-1'>{doc.name}</p>
+                          <div className='flex items-center gap-0.5 shrink-0'>
+                            {doc.status === 'completed' && (
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                title='Explore chunks'
+                                onClick={() => setExplorerDoc({ id: doc.id, name: doc.name })}
+                                className='h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg'
+                              >
+                                <Eye className='h-3.5 w-3.5' />
+                              </Button>
+                            )}
+                            {doc.status === 'failed' && (
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                                title='Retry indexing'
+                                disabled={isBusy}
+                                onClick={() => retryMutation.mutate(doc.id)}
+                                className='h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg'
+                              >
+                                <RotateCcw className='h-3.5 w-3.5' />
+                              </Button>
+                            )}
                             <Button
                               variant='ghost'
                               size='icon'
-                              disabled={deleteMutation.isPending}
+                              disabled={deleteMutation.isPending || isBusy}
                               onClick={() => deleteMutation.mutate(doc.id)}
                               className='h-7 w-7 hover:text-destructive text-muted-foreground hover:bg-destructive/10 rounded-lg'
                             >
@@ -470,6 +472,9 @@ function DocumentsComponent() {
                             </Button>
                           </div>
                         </div>
+                        {doc.status === 'failed' && doc.error_message && (
+                          <p className='text-[10px] text-destructive/90 leading-snug'>{doc.error_message}</p>
+                        )}
                         <div className='flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap'>
                           <span className='font-mono'>{formatBytes(doc.size_bytes)}</span>
                           <span>·</span>
@@ -484,8 +489,9 @@ function DocumentsComponent() {
                           >
                             {doc.status === 'completed' && <CheckCircle2 className='h-2.5 w-2.5 font-semibold' />}
                             {doc.status === 'failed' && <AlertCircle className='h-2.5 w-2.5' />}
-                            {doc.status === 'processing' && <Loader2 className='h-2.5 w-2.5 animate-spin' />}
-                            {doc.status === 'pending' && <Loader2 className='h-2.5 w-2.5 animate-spin' />}
+                            {(doc.status === 'processing' || doc.status === 'pending') && (
+                              <Loader2 className='h-2.5 w-2.5 animate-spin' />
+                            )}
                             <span className='capitalize'>{doc.status}</span>
                           </span>
                         </div>

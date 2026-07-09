@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { getDb, isDbInitialized } from '@/db/client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { History, Trash2, Search, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -14,6 +14,7 @@ export const Route = createFileRoute('/history')({
 function HistoryComponent() {
   const [dbReady, setDbReady] = useState(isDbInitialized())
   const navigate = useNavigate({ from: '/history' })
+  const queryClient = useQueryClient()
   const { activeProject } = useSystemInit()
 
   useEffect(() => {
@@ -36,6 +37,17 @@ function HistoryComponent() {
     enabled: dbReady && !!activeProject,
   })
 
+  const deleteItemMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!dbReady) throw new Error('Database not ready')
+      const db = getDb()
+      await db.query('DELETE FROM query_history WHERE id = $1', [id])
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['query-history-full'] })
+    },
+  })
+
   const handleClearHistory = async () => {
     if (!dbReady || !activeProject) return
     if (!confirm('Are you sure you want to clear the history for this project?')) return
@@ -46,6 +58,12 @@ function HistoryComponent() {
     } catch (err) {
       console.error('Failed to clear query history:', err)
     }
+  }
+
+  const handleDeleteItem = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm('Delete this history item?')) return
+    deleteItemMutation.mutate(id)
   }
 
   const handleOpenQuery = (id: string) => {
@@ -107,9 +125,24 @@ function HistoryComponent() {
                   <Search className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-heading font-semibold text-foreground text-base line-clamp-1 group-hover:text-primary transition-colors">
-                    {item.query}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-heading font-semibold text-foreground text-base line-clamp-1 group-hover:text-primary transition-colors">
+                      {item.query}
+                    </h3>
+                    <button
+                      type="button"
+                      title="Delete this item"
+                      onClick={(e) => handleDeleteItem(e, item.id)}
+                      disabled={deleteItemMutation.isPending}
+                      className="shrink-0 h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                    >
+                      {deleteItemMutation.isPending && deleteItemMutation.variables === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
                   <div
                     className="text-sm text-muted-foreground mt-1 line-clamp-2 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0"
                     dangerouslySetInnerHTML={{
