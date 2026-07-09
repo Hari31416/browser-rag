@@ -13,10 +13,11 @@ A fully local, private Retrieval-Augmented Generation (RAG) system running entir
 - **Selectable Local LLM Engines**: Stream responses from multiple local models using WebLLM, Transformers.js, Gemma-4-kernel, and LFM2-kernel. Supports deep reasoning "thinking" processes.
 - **Multi-Turn Chat**: Conversation memory across turns, with LLM query rewriting that turns follow-ups into standalone search queries for better retrieval.
 - **Traceable Citations**: Generated responses include interactive citation tooltips linking back to source document chunks.
-- **Retrieval Debug Panel**: Toggleable per-answer debug view with user vs rewritten query, semantic hits, keyword hits, RRF final ranking, settings, and stage timings.
+- **Retrieval Debug Panel (Debug UI)**: Inspect the retrieval and generation pipeline step-by-step. View the user query vs rewritten query, semantic hits, keyword hits, Reciprocal Rank Fusion (RRF) scores, embedding/generation settings, and precise stage timings directly in the chat UI.
 - **Document Chunk Explorer**: Preview indexed chunks per document, including token counts, page numbers, and heading paths.
 - **Failed Index Retry**: Failed uploads show error details and can be retried from the stored original file.
-- **Diagnostics & Insights**: Real-time monitoring of browser capabilities (WebGPU, Web Workers, IndexedDB, WASM multi-threading) and PGlite database statistics (schema versions, table row counts).
+- **System Capabilities & Diagnostics**: Real-time monitoring of browser capabilities (WebGPU, Web Workers, IndexedDB, WASM multi-threading) and PGlite database statistics (schema versions, table row counts).
+- **Database Backup & Restore (Import/Export)**: Backup and restore the entire local workspace (projects, documents, chunks, vectors, settings, and history) via standard `.tar.gz` compressed tarballs.
 
 ## Tech Stack
 
