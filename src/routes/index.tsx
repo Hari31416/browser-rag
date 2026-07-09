@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,9 +31,10 @@ import { marked } from 'marked'
 
 export const Route = createFileRoute('/')({
   component: ChatComponent,
-  validateSearch: (search: Record<string, unknown>): { historyId?: string } => {
+  validateSearch: (search: Record<string, unknown>): { historyId?: string; clear?: string } => {
     return {
       historyId: (search.historyId as string) || undefined,
+      clear: (search.clear as string) || undefined,
     }
   },
 })
@@ -252,7 +253,8 @@ function ChatComponent() {
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
 
-  const { historyId } = Route.useSearch()
+  const { historyId, clear } = Route.useSearch()
+  const navigate = useNavigate()
 
   const handleLoadHistoryItem = (item: any) => {
     let parsedCitations: any[] = []
@@ -333,6 +335,26 @@ function ChatComponent() {
 
   const variant = getLLMVariant(prefs.llmVariantId)
   const option = getLLMOption(prefs.llmVariantId)
+
+  useEffect(() => {
+    if (clear) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      let hook: any
+      if (variant.engine === 'transformers-js') hook = qwen35
+      else if (variant.engine === 'webllm') hook = webllm
+      else if (variant.engine === 'gemma4-kernel') hook = gemma4
+      else if (variant.engine === 'lfm2-kernel') hook = lfm2
+      hook?.abort()
+
+      setMessages([])
+      setErrorMessage(null)
+      setIsGenerating(false)
+      setStatusMessage(null)
+      navigate({ to: '/', replace: true })
+    }
+  }, [clear, navigate, variant.engine, qwen35, webllm, gemma4, lfm2])
 
   const handleInitialize = async () => {
     setLoadingError(null)

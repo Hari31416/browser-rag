@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { FileText, Search, Settings, ChevronLeft, ChevronRight, History, Menu, Sun, Moon } from 'lucide-react'
+import { FileText, Settings, ChevronLeft, ChevronRight, History, Menu, Sun, Moon, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -15,7 +15,7 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const { theme, setTheme } = useTheme()
   const links = [
-    { to: '/', label: 'Chat', icon: Search },
+    { to: '/', label: 'Start Chat', icon: Plus },
     { to: '/history', label: 'History', icon: History },
     { to: '/documents', label: 'Documents', icon: FileText },
     { to: '/settings', label: 'Settings', icon: Settings },
@@ -70,6 +70,31 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen = false, onMobileC
           {links.map((link) => {
             const Icon = link.icon
             const showLabel = !isCollapsed || isMobileOpen
+            if (link.to === '/') {
+              return (
+                <Link
+                  key={link.to}
+                  to="/"
+                  search={{ clear: Date.now().toString() }}
+                  title={(isCollapsed && !isMobileOpen) ? link.label : undefined}
+                  activeProps={{
+                    className: 'bg-primary/10 text-primary font-medium',
+                  }}
+                  inactiveProps={{
+                    className: 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  }}
+                  className={cn(
+                    "flex items-center rounded-lg transition-all duration-200",
+                    (isCollapsed && !isMobileOpen)
+                      ? "justify-center h-10 w-10 mx-auto"
+                      : "gap-3 px-3 py-2 text-sm"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {showLabel && <span className="truncate">{link.label}</span>}
+                </Link>
+              )
+            }
             return (
               <Link
                 key={link.to}
