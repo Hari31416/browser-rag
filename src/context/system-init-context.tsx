@@ -4,7 +4,12 @@ import { useGemma4 } from '@/hooks/use-gemma4'
 import { useWebLLM } from '@/hooks/use-webllm'
 import { useLfm2 } from '@/hooks/use-lfm2'
 import { useQwen35 } from '@/hooks/use-qwen35'
-import { getLLMVariant } from '@/llm/llm-models'
+import { getLLMOption, getLLMVariant } from '@/llm/llm-models'
+import {
+  loadLLMVariant,
+  unloadStaleLLMVariant,
+  type LLMRuntimeHandles,
+} from '@/llm/llm-runtime'
 import { getEmbeddingModelConfig } from '@/rag/embedding-models'
 import { getEmbeddingProvider, localProvider } from '@/rag/embedding-runtime'
 import { type Project, getProject, listProjects, createProject, updateProject } from '@/lib/projects'
@@ -30,6 +35,7 @@ interface SystemInitContextType {
   llmLoading: boolean
   llmProgress: number
   loadLlmModel: () => Promise<void>
+  switchLlmModel: (variantId: string) => Promise<void>
 
   // Embedding load states
   embeddingReady: boolean
@@ -190,6 +196,13 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
     }
   }, [activeProject])
 
+  const getLLMHandles = useCallback((): LLMRuntimeHandles => ({
+    gemma4: gemma4 as unknown as LLMRuntimeHandles['gemma4'],
+    webllm: webllm as unknown as LLMRuntimeHandles['webllm'],
+    lfm2: lfm2 as unknown as LLMRuntimeHandles['lfm2'],
+    qwen35: qwen35 as unknown as LLMRuntimeHandles['qwen35'],
+  }), [gemma4, webllm, lfm2, qwen35])
+
   // Load active LLM model
   const loadLlmModel = useCallback(async () => {
     setLoadingError(null)
@@ -200,7 +213,35 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
     if (!success) {
       throw new Error(`Failed to load LLM model: ${variant.engineModelId}`)
     }
-  }, [activeLlmHook, variant.engineModelId])
+  }, [activeLlmHook, preferences.llmVariantId, variant.engineModelId])
+
+  // Switch LLM variant, unload previous weights when needed, then load the new one
+  const switchLlmModel = useCallback(async (variantId: string) => {
+    if (variantId === preferences.llmVariantId) return
+
+    const previous = getLLMVariant(preferences.llmVariantId)
+    const next = getLLMVariant(variantId)
+    const option = getLLMOption(variantId)
+    const handles = getLLMHandles()
+
+    setLoadingError(null)
+    updatePreferences({
+      llmVariantId: variantId,
+      llmModelId: option.logicalModelId,
+    })
+
+    try {
+      await unloadStaleLLMVariant(previous, next, handles)
+      const success = await loadLLMVariant(next, handles)
+      if (!success) {
+        throw new Error(`Failed to load LLM model: ${next.engineModelId}`)
+      }
+    } catch (err: any) {
+      console.error('Failed to switch LLM model:', err)
+      setLoadingError(err.message || 'Failed to switch LLM model.')
+      throw err
+    }
+  }, [preferences.llmVariantId, getLLMHandles, updatePreferences])
 
   return (
     <SystemInitContext.Provider
@@ -218,6 +259,7 @@ export function SystemInitProvider({ children }: { children: React.ReactNode }) 
         llmLoading,
         llmProgress,
         loadLlmModel,
+        switchLlmModel,
         embeddingReady,
         embeddingLoading,
         embeddingProgress,

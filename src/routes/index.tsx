@@ -246,6 +246,12 @@ function ChatComponent() {
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
 
+  // Model picker
+  const [modelOpen, setModelOpen] = useState(false)
+  const [isSwitchingModel, setIsSwitchingModel] = useState(false)
+  const [chatReady, setChatReady] = useState(false)
+  const modelRef = useRef<HTMLDivElement>(null)
+
   const { historyId, clear } = Route.useSearch()
   const navigate = useNavigate()
 
@@ -281,7 +287,7 @@ function ChatComponent() {
     updatePreferences,
     activeProject,
     gemma4, webllm, lfm2, qwen35,
-    isLlmReady, llmLoading, llmProgress, loadLlmModel,
+    isLlmReady, llmLoading, llmProgress, loadLlmModel, switchLlmModel,
     embeddingReady, embeddingLoading, embeddingProgress, loadEmbeddingModel,
     loadingError, setLoadingError,
   } = useSystemInit()
@@ -323,6 +329,15 @@ function ChatComponent() {
   }, [filterOpen])
 
   useEffect(() => {
+    if (!modelOpen) return
+    const handler = (e: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [modelOpen])
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
@@ -360,7 +375,7 @@ function ChatComponent() {
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault()
     const q = queryText.trim()
-    if (!q || isGenerating) return
+    if (!q || isGenerating || isSwitchingModel || !isLlmReady) return
 
     const uId = crypto.randomUUID()
     const aId = crypto.randomUUID()
@@ -456,11 +471,33 @@ function ChatComponent() {
     navigator.clipboard.writeText(text).catch(() => { })
   }
 
+  const handleSwitchModel = async (variantId: string) => {
+    if (variantId === prefs.llmVariantId || isGenerating || isSwitchingModel || llmLoading) return
+    setModelOpen(false)
+    setIsSwitchingModel(true)
+    setErrorMessage(null)
+    setStatusMessage(`Loading ${getLLMOption(variantId).name}...`)
+    try {
+      await switchLlmModel(variantId)
+      setStatusMessage(null)
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to switch LLM model.')
+      setStatusMessage(null)
+    } finally {
+      setIsSwitchingModel(false)
+    }
+  }
+
   const isLoaded = isLlmReady && embeddingReady
   const isInitializing = llmLoading || embeddingLoading
+  const modelPickerDisabled = isGenerating || isSwitchingModel || llmLoading
+
+  useEffect(() => {
+    if (isLoaded) setChatReady(true)
+  }, [isLoaded])
 
   // ── Initialization screen ────────────────────────────────────────────────
-  if (!isLoaded) {
+  if (!chatReady) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 min-h-[400px]">
         <Card className="w-full max-w-xl bg-card border-border/70 relative overflow-hidden rounded-lg page-enter">
@@ -632,7 +669,7 @@ function ChatComponent() {
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="Ask anything... (Enter to send, Shift+Enter for newline)"
-                  disabled={isGenerating || !dbReady}
+                  disabled={isGenerating || isSwitchingModel || !dbReady || !isLlmReady}
                   className="flex-1 resize-none bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/45 leading-relaxed py-1 min-h-[28px] max-h-[140px] disabled:opacity-50"
                 />
                 {isGenerating ? (
@@ -649,7 +686,7 @@ function ChatComponent() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!dbReady || !queryText.trim()}
+                    disabled={!dbReady || !isLlmReady || isSwitchingModel || !queryText.trim()}
                     className="shrink-0 h-8 w-8 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-0.5"
                   >
                     <Send className="h-3.5 w-3.5" />
@@ -657,16 +694,82 @@ function ChatComponent() {
                 )}
               </div>
               <div className="flex items-center gap-3 pt-2 border-t border-border/40">
-                <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-secondary/60 px-2.5 py-1 rounded-sm border border-border/40 select-none">
-                  <Cpu className="h-2.5 w-2.5 text-primary" />
-                  <span className="font-medium text-foreground">{option.name}</span>
+                <div className="relative" ref={modelRef}>
+                  <button
+                    type="button"
+                    onClick={() => { setModelOpen((o) => !o); setFilterOpen(false) }}
+                    disabled={modelPickerDisabled}
+                    aria-haspopup="listbox"
+                    aria-expanded={modelOpen}
+                    className={cn(
+                      'flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-sm border transition-all',
+                      'border-border/50 bg-secondary/60 text-muted-foreground hover:border-border hover:text-foreground',
+                      'disabled:opacity-40 disabled:cursor-not-allowed'
+                    )}
+                  >
+                    {isSwitchingModel || llmLoading ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />
+                    ) : (
+                      <Cpu className="h-2.5 w-2.5 text-primary" />
+                    )}
+                    <span className="font-medium text-foreground">{option.name}</span>
+                    <ChevronDown className={cn('h-2.5 w-2.5 transition-transform', modelOpen && 'rotate-180')} />
+                  </button>
+
+                  {modelOpen && (
+                    <div className="absolute left-0 bottom-full mb-2 z-50 w-80 rounded-lg border border-border/70 bg-popover shadow-lg overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
+                        <span className="text-xs font-semibold flex items-center gap-1.5">
+                          <Cpu className="h-3.5 w-3.5 text-primary" />
+                          Select LLM
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">Loads in browser</span>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto py-1.5" role="listbox">
+                        {LLM_OPTIONS.map((opt) => {
+                          const selected = opt.id === prefs.llmVariantId
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              role="option"
+                              aria-selected={selected}
+                              onClick={() => handleSwitchModel(opt.id)}
+                              className={cn(
+                                'w-full flex items-start gap-2.5 px-3 py-2 text-xs hover:bg-secondary/40 text-left',
+                                selected && 'bg-primary/5 text-primary'
+                              )}
+                            >
+                              <span className={cn(
+                                'mt-0.5 h-4 w-4 rounded-sm border flex items-center justify-center shrink-0',
+                                selected ? 'bg-primary border-primary text-primary-foreground' : 'border-border'
+                              )}>
+                                {selected && <Check className="h-2.5 w-2.5" />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="font-medium truncate">{opt.name}</span>
+                                  <span className="text-[9px] text-muted-foreground shrink-0 font-mono">
+                                    {opt.sizeLabel}
+                                  </span>
+                                </span>
+                                <span className="block text-[10px] text-muted-foreground mt-0.5">
+                                  {opt.variantLabel ?? opt.engineType}
+                                </span>
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="relative" ref={filterRef}>
                   <button
                     type="button"
-                    onClick={() => setFilterOpen((o) => !o)}
-                    disabled={isGenerating || !dbReady || projectDocs.length === 0}
+                    onClick={() => { setFilterOpen((o) => !o); setModelOpen(false) }}
+                    disabled={isGenerating || isSwitchingModel || !dbReady || projectDocs.length === 0}
                     className={cn(
                       'flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-sm border transition-all',
                       selectedDocIds.size > 0
