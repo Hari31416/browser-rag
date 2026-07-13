@@ -57,6 +57,7 @@ function SourcePill({ citation, index }: { citation: any; index: number }) {
   const [hovered, setHovered] = useState(false)
   const pillRef = useRef<HTMLDivElement>(null)
   const [tooltipLeft, setTooltipLeft] = useState(true)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const matchSource =
     citation.source === 'hybrid'
@@ -71,12 +72,34 @@ function SourcePill({ citation, index }: { citation: any; index: number }) {
     setTooltipLeft(rect.left + 288 < window.innerWidth)
   }, [hovered])
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    setHovered(true)
+  }
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setHovered(false)
+    }, 200)
+  }
+
   return (
     <div
       ref={pillRef}
       className="relative inline-block"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <span className="inline-flex items-center gap-1 text-[10px] bg-card hover:bg-primary/8 border border-border/60 hover:border-primary/40 text-muted-foreground hover:text-primary px-2 py-0.5 rounded-sm cursor-default transition-all duration-200 select-none">
         <FileText className="h-2.5 w-2.5 shrink-0" />
@@ -90,7 +113,7 @@ function SourcePill({ citation, index }: { citation: any; index: number }) {
       {hovered && (
         <div
           className={cn(
-            'absolute bottom-full mb-2 z-50 w-72 rounded-lg border border-border/70 bg-popover shadow-lg overflow-hidden pointer-events-none',
+            'absolute bottom-full mb-2 z-50 w-72 rounded-lg border border-border/70 bg-popover shadow-lg overflow-hidden',
             tooltipLeft ? 'left-0' : 'right-0'
           )}
         >
