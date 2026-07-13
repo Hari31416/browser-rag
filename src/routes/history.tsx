@@ -113,50 +113,49 @@ function HistoryComponent() {
           {queryHistory.map((item: any, index: number) => (
             <Card
               key={item.id}
-              className="border-border/70 bg-card hover:border-primary/35 cursor-pointer transition-all group relative mb-3 page-enter"
+              className="border-border/70 bg-card hover:border-primary/35 cursor-pointer transition-all group relative mb-2 page-enter"
               style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
               onClick={() => handleOpenQuery(item.id)}
             >
-              <CardContent className="p-4 sm:p-5 flex items-start gap-4">
-                <div className="hidden sm:flex absolute -left-6 top-5 h-5 w-5 rounded-full bg-card border border-border items-center justify-center group-hover:border-primary/50 transition-colors">
+              <CardContent className="p-3 sm:py-2.5 sm:px-4 flex items-start gap-3">
+                <div className="hidden sm:flex absolute -left-6 top-[13px] h-5 w-5 rounded-full bg-card border border-border items-center justify-center group-hover:border-primary/50 transition-colors">
                   <Search className="h-2.5 w-2.5 text-primary" />
                 </div>
-                <div className="sm:hidden h-9 w-9 rounded-md bg-primary/8 border border-primary/20 flex items-center justify-center shrink-0">
-                  <Search className="h-4 w-4 text-primary" />
+                <div className="sm:hidden h-7 w-7 rounded bg-primary/8 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Search className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-heading font-semibold text-foreground text-base line-clamp-1 group-hover:text-primary transition-colors">
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="font-heading font-semibold text-foreground text-sm line-clamp-1 group-hover:text-primary transition-colors">
                       {item.query}
                     </h3>
-                    <button
-                      type="button"
-                      title="Delete this item"
-                      onClick={(e) => handleDeleteItem(e, item.id)}
-                      disabled={deleteItemMutation.isPending}
-                      className="shrink-0 h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                    >
-                      {deleteItemMutation.isPending && deleteItemMutation.variables === item.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">
+                        {new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <button
+                        type="button"
+                        title="Delete this item"
+                        onClick={(e) => handleDeleteItem(e, item.id)}
+                        disabled={deleteItemMutation.isPending}
+                        className="shrink-0 h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                      >
+                        {deleteItemMutation.isPending && deleteItemMutation.variables === item.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div
-                    className="text-sm text-muted-foreground mt-1 line-clamp-2 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0"
+                    className="text-xs text-muted-foreground mt-0.5 line-clamp-1 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0"
                     dangerouslySetInnerHTML={{
                       __html: item.answer
                         ? (marked.parse(item.answer, { async: false }) as string)
                         : 'No answer generated'
                     }}
                   />
-                  <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground/70">
-                    <span className="flex items-center gap-1">
-                      <History className="h-3.5 w-3.5" />
-                      {new Date(item.created_at).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
                 </div>
               </CardContent>
             </Card>
