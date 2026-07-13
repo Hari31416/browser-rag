@@ -258,7 +258,7 @@ function ProjectsComponent() {
         />
       )}
 
-      <div className='space-y-6 max-w-4xl'>
+      <div className='space-y-6 max-w-4xl mx-auto w-full'>
         <div className='flex items-center justify-between gap-4'>
           <div>
             <h1 className='font-heading text-2xl font-semibold tracking-tight'>Projects</h1>

@@ -187,7 +187,7 @@ function SettingsComponent() {
   const selectedOpt = getLLMOption(prefs.llmVariantId)
 
   return (
-    <div className='space-y-6 max-w-4xl'>
+    <div className='space-y-6 max-w-4xl mx-auto w-full'>
       <div>
         <h1 className='font-heading text-2xl font-semibold tracking-tight'>Settings</h1>
         <p className='text-muted-foreground text-sm mt-1'>
